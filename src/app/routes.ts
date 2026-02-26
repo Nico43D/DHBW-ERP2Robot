@@ -12,6 +12,14 @@ import OrderDetail from './pages/OrderDetail';
 import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
 import AddressManagement from './pages/AddressManagement';
+import Kontakt from './pages/Kontakt';
+import VersandLieferung from './pages/VersandLieferung';
+import RueckgabeUmtausch from './pages/RueckgabeUmtausch';
+import FAQ from './pages/FAQ';
+import AGB from './pages/AGB';
+import Datenschutz from './pages/Datenschutz';
+import Impressum from './pages/Impressum';
+import Widerrufsrecht from './pages/Widerrufsrecht';
 import NotFound from './pages/NotFound';
 
 export const router = createBrowserRouter([
@@ -31,6 +39,14 @@ export const router = createBrowserRouter([
       { path: 'checkout', Component: Checkout },
       { path: 'order-confirmation/:orderNumber', Component: OrderConfirmation },
       { path: 'account/addresses', Component: AddressManagement },
+      { path: 'kontakt', Component: Kontakt },
+      { path: 'versand-lieferung', Component: VersandLieferung },
+      { path: 'rueckgabe-umtausch', Component: RueckgabeUmtausch },
+      { path: 'faq', Component: FAQ },
+      { path: 'agb', Component: AGB },
+      { path: 'datenschutz', Component: Datenschutz },
+      { path: 'impressum', Component: Impressum },
+      { path: 'widerrufsrecht', Component: Widerrufsrecht },
       { path: '*', Component: NotFound },
     ],
   },

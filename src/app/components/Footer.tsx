@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router';
 
 export function Footer() {
   return (
@@ -14,19 +15,51 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-3">Kundenservice</h4>
             <ul className="space-y-2 text-sm text-gray-300">
-              <li>Kontakt</li>
-              <li>Versand & Lieferung</li>
-              <li>Rückgabe & Umtausch</li>
-              <li>FAQ</li>
+              <li>
+                <Link to="/kontakt" className="hover:text-white transition-colors">
+                  Kontakt
+                </Link>
+              </li>
+              <li>
+                <Link to="/versand-lieferung" className="hover:text-white transition-colors">
+                  Versand & Lieferung
+                </Link>
+              </li>
+              <li>
+                <Link to="/rueckgabe-umtausch" className="hover:text-white transition-colors">
+                  Rückgabe & Umtausch
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq" className="hover:text-white transition-colors">
+                  FAQ
+                </Link>
+              </li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold mb-3">Rechtliches</h4>
             <ul className="space-y-2 text-sm text-gray-300">
-              <li>AGB</li>
-              <li>Datenschutz</li>
-              <li>Impressum</li>
-              <li>Widerrufsrecht</li>
+              <li>
+                <Link to="/agb" className="hover:text-white transition-colors">
+                  AGB
+                </Link>
+              </li>
+              <li>
+                <Link to="/datenschutz" className="hover:text-white transition-colors">
+                  Datenschutz
+                </Link>
+              </li>
+              <li>
+                <Link to="/impressum" className="hover:text-white transition-colors">
+                  Impressum
+                </Link>
+              </li>
+              <li>
+                <Link to="/widerrufsrecht" className="hover:text-white transition-colors">
+                  Widerrufsrecht
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
