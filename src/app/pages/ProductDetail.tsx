@@ -5,7 +5,6 @@ import { Button } from '../components/Button';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { useCart } from '../contexts/CartContext';
 import { ArrowLeft, Check } from 'lucide-react';
-import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -56,11 +55,11 @@ export default function ProductDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Product Image */}
-          <div className="aspect-square rounded-lg overflow-hidden bg-white shadow-md">
-            <ImageWithFallback
+          <div className="aspect-square rounded-lg overflow-hidden bg-white shadow-md flex items-center justify-center p-8">
+            <img
               src={product.image}
               alt={product.name}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           </div>
 

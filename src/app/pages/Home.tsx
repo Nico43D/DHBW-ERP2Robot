@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import { Button } from '../components/Button';
 import { products } from '../data/products';
 import { ShoppingBag, Truck, CreditCard } from 'lucide-react';
-import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 
 export default function Home() {
   return (
@@ -78,11 +77,11 @@ export default function Home() {
             {products.map((product) => (
               <Link key={product.id} to={`/products/${product.id}`} className="group">
                 <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="aspect-square overflow-hidden bg-gray-100">
-                    <ImageWithFallback
+                  <div className="aspect-square overflow-hidden bg-white flex items-center justify-center p-6">
+                    <img
                       src={product.image}
                       alt={product.name}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                      className="h-full w-full object-contain group-hover:scale-105 transition-transform"
                     />
                   </div>
                   <div className="p-6">

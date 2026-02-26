@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, Navigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/Card';
-import { ShoppingBag, User, Package } from 'lucide-react';
+import { ShoppingBag, MapPin, Package } from 'lucide-react';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
@@ -56,19 +56,21 @@ export default function Dashboard() {
             </Card>
           </Link>
 
-          <Card className="p-6 bg-gray-50 border-dashed">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-[#6E7C85] text-white rounded-lg">
-                <User className="h-6 w-6" />
+          <Link to="/account/addresses">
+            <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-[#EB1A2B] text-white rounded-lg">
+                  <MapPin className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-1">Adressen</h3>
+                  <p className="text-sm text-gray-600">
+                    Verwalten Sie Ihre Adressen
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">Profil</h3>
-                <p className="text-sm text-gray-600">
-                  Demnächst verfügbar
-                </p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </Link>
         </div>
 
         {/* Account Information */}

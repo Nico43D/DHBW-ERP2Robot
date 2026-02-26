@@ -6,7 +6,6 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { Trash2, ShoppingBag } from 'lucide-react';
-import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 
 export default function Cart() {
   const { items, updateQuantity, removeFromCart, totalPrice } = useCart();
@@ -56,11 +55,11 @@ export default function Cart() {
               <Card key={item.productId} className="p-4">
                 <div className="flex gap-4">
                   <Link to={`/products/${item.productId}`} className="flex-shrink-0">
-                    <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
-                      <ImageWithFallback
+                    <div className="w-24 h-24 rounded-lg overflow-hidden bg-white flex items-center justify-center p-2">
+                      <img
                         src={item.image}
                         alt={item.name}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                       />
                     </div>
                   </Link>

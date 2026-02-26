@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Navigate, useNavigate, Link } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { Button } from '../components/Button';
-import { Input } from '../components/Input';
 import { Card } from '../components/Card';
+import { MapPin } from 'lucide-react';
 
 export default function Checkout() {
   const { user, isAuthenticated } = useAuth();
@@ -12,16 +12,9 @@ export default function Checkout() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    street: '',
-    houseNumber: '',
-    zipCode: '',
-    city: '',
-    country: 'Deutschland',
     paymentMethod: 'rechnung' as 'rechnung' | 'paypal' | 'kreditkarte',
     shippingMethod: 'standard' as 'standard' | 'express',
   });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   if (!isAuthenticated) {
     return <Navigate to="/login?redirect=checkout&message=login-required" replace />;
@@ -33,27 +26,10 @@ export default function Checkout() {
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    setErrors((prev) => ({ ...prev, [field]: '' }));
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.street) newErrors.street = 'Straße ist erforderlich';
-    if (!formData.houseNumber) newErrors.houseNumber = 'Hausnummer ist erforderlich';
-    if (!formData.zipCode) newErrors.zipCode = 'PLZ ist erforderlich';
-    if (!formData.city) newErrors.city = 'Stadt ist erforderlich';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
 
     // Create order
     const orderNumber = Math.random().toString(36).substr(2, 9).toUpperCase();
@@ -70,7 +46,9 @@ export default function Checkout() {
         quantity: item.quantity,
         price: item.price,
       })),
-      address: formData,
+      billingAddress: user!.billingAddress,
+      deliveryAddress: user!.deliveryAddress,
+      paymentMethod: formData.paymentMethod,
     };
 
     // Save order to localStorage
@@ -99,56 +77,59 @@ export default function Checkout() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Checkout Form */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Delivery Address */}
+              {/* Addresses Summary */}
               <Card className="p-6">
-                <h2 className="font-semibold text-xl mb-4">Lieferadresse</h2>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="md:col-span-3">
-                      <Input
-                        label="Straße *"
-                        value={formData.street}
-                        onChange={(e) => handleChange('street', e.target.value)}
-                        error={errors.street}
-                        placeholder="Musterstraße"
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        label="Nr. *"
-                        value={formData.houseNumber}
-                        onChange={(e) => handleChange('houseNumber', e.target.value)}
-                        error={errors.houseNumber}
-                        placeholder="123"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                      <Input
-                        label="PLZ *"
-                        value={formData.zipCode}
-                        onChange={(e) => handleChange('zipCode', e.target.value)}
-                        error={errors.zipCode}
-                        placeholder="12345"
-                      />
-                    </div>
-                    <div className="md:col-span-3">
-                      <Input
-                        label="Stadt *"
-                        value={formData.city}
-                        onChange={(e) => handleChange('city', e.target.value)}
-                        error={errors.city}
-                        placeholder="Berlin"
-                      />
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-xl">Adressen</h2>
+                  <Link 
+                    to="/account/addresses" 
+                    className="text-sm text-[#EB1A2B] hover:underline font-medium flex items-center gap-1"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Adresse ändern
+                  </Link>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Billing Address */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Rechnungsadresse</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <p className="text-gray-900 font-medium">
+                        {user?.firstName} {user?.lastName}
+                      </p>
+                      {user?.company && (
+                        <p className="text-gray-700">{user.company}</p>
+                      )}
+                      <p className="text-gray-700">
+                        {user?.billingAddress.street} {user?.billingAddress.houseNumber}
+                      </p>
+                      <p className="text-gray-700">
+                        {user?.billingAddress.zipCode} {user?.billingAddress.city}
+                      </p>
+                      <p className="text-gray-700">{user?.billingAddress.country}</p>
                     </div>
                   </div>
-                  <Input
-                    label="Land"
-                    value={formData.country}
-                    onChange={(e) => handleChange('country', e.target.value)}
-                    disabled
-                  />
+
+                  {/* Delivery Address */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Lieferadresse</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <p className="text-gray-900 font-medium">
+                        {user?.firstName} {user?.lastName}
+                      </p>
+                      {user?.company && (
+                        <p className="text-gray-700">{user.company}</p>
+                      )}
+                      <p className="text-gray-700">
+                        {user?.deliveryAddress.street} {user?.deliveryAddress.houseNumber}
+                      </p>
+                      <p className="text-gray-700">
+                        {user?.deliveryAddress.zipCode} {user?.deliveryAddress.city}
+                      </p>
+                      <p className="text-gray-700">{user?.deliveryAddress.country}</p>
+                    </div>
+                  </div>
                 </div>
               </Card>
 

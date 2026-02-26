@@ -11,6 +11,7 @@ import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
+import AddressManagement from './pages/AddressManagement';
 import NotFound from './pages/NotFound';
 
 export const router = createBrowserRouter([
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: 'orders/:orderNumber', Component: OrderDetail },
       { path: 'checkout', Component: Checkout },
       { path: 'order-confirmation/:orderNumber', Component: OrderConfirmation },
+      { path: 'account/addresses', Component: AddressManagement },
       { path: '*', Component: NotFound },
     ],
   },

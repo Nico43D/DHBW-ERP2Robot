@@ -5,7 +5,6 @@ import { Button } from './Button';
 import { QuantityStepper } from './QuantityStepper';
 import { Card } from './Card';
 import { useCart } from '../contexts/CartContext';
-import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface ProductCardProps {
   product: Product;
@@ -31,11 +30,11 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <Link to={`/products/${product.id}`} className="block">
-        <div className="aspect-square overflow-hidden bg-gray-100">
-          <ImageWithFallback
+        <div className="aspect-square overflow-hidden bg-white flex items-center justify-center p-6">
+          <img
             src={product.image}
             alt={product.name}
-            className="h-full w-full object-cover transition-transform hover:scale-105"
+            className="h-full w-full object-contain transition-transform hover:scale-105"
           />
         </div>
       </Link>

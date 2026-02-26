@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+export interface Address {
+  street: string;
+  houseNumber: string;
+  zipCode: string;
+  city: string;
+  country: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -7,12 +15,15 @@ export interface User {
   lastName: string;
   customerType: 'private' | 'company';
   company?: string;
+  billingAddress: Address;
+  deliveryAddress: Address;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => boolean;
   register: (data: RegisterData) => boolean;
+  updateAddresses: (billingAddress: Address, deliveryAddress: Address) => void;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -24,6 +35,8 @@ export interface RegisterData {
   lastName: string;
   customerType: 'private' | 'company';
   company?: string;
+  billingAddress: Address;
+  deliveryAddress: Address;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -76,13 +89,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
+  const updateAddresses = (billingAddress: Address, deliveryAddress: Address) => {
+    if (!user) return;
+
+    const updatedUser = {
+      ...user,
+      billingAddress,
+      deliveryAddress,
+    };
+
+    setUser(updatedUser);
+    localStorage.setItem('duale-user', JSON.stringify(updatedUser));
+
+    // Update in users list
+    const users = JSON.parse(localStorage.getItem('duale-users') || '[]');
+    const userIndex = users.findIndex((u: any) => u.id === user.id);
+    if (userIndex !== -1) {
+      users[userIndex] = { ...users[userIndex], billingAddress, deliveryAddress };
+      localStorage.setItem('duale-users', JSON.stringify(users));
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('duale-user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, register, updateAddresses, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
