@@ -1,6 +1,6 @@
-import knoppersImage from 'figma:asset/68f4ec064ed64bc480406df6e3ad02a9ebbd4d0f.png';
-import nougatImage from 'figma:asset/31aacc9ed16cf6be5e1b4c113dbf2e7fb9c99a51.png';
-import ferreroImage from 'figma:asset/2e6b40bc4a8297c5674fc256b1158b0f12bdd5fb.png';
+import knoppersImage from '../../assets/68f4ec064ed64bc480406df6e3ad02a9ebbd4d0f.png';
+import nougatImage from '../../assets/31aacc9ed16cf6be5e1b4c113dbf2e7fb9c99a51.png';
+import ferreroImage from '../../assets/2e6b40bc4a8297c5674fc256b1158b0f12bdd5fb.png';
 
 export interface Product {
   id: string;
