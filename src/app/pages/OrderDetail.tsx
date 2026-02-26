@@ -41,15 +41,16 @@ function getShippingStatusBadge(status: Order['shippingStatus']) {
 
 export default function OrderDetail() {
   const { orderNumber } = useParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isSimplifiedMode } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
 
   useEffect(() => {
-    // Load order from localStorage
-    const allOrders = JSON.parse(localStorage.getItem('duale-orders') || '[]');
+    // Load order from localStorage (use different key for demo mode)
+    const ordersKey = isSimplifiedMode ? 'duale-demo-orders' : 'duale-orders';
+    const allOrders = JSON.parse(localStorage.getItem(ordersKey) || '[]');
     const foundOrder = allOrders.find((o: Order) => o.orderNumber === orderNumber);
     setOrder(foundOrder || null);
-  }, [orderNumber]);
+  }, [orderNumber, isSimplifiedMode]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -103,6 +104,17 @@ export default function OrderDetail() {
           </p>
         </div>
 
+        {isSimplifiedMode && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-lg">
+            <p className="text-sm font-semibold text-amber-900">
+              📦 Demo-Version Bestellung
+            </p>
+            <p className="text-xs text-amber-800 mt-1">
+              Diese Bestellung wurde in der Demo-Version erstellt
+            </p>
+          </div>
+        )}
+
         {/* Status Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card className="p-4">
@@ -144,15 +156,38 @@ export default function OrderDetail() {
 
         {/* Order Items */}
         <Card className="p-6 mb-6">
-          <h2 className="font-semibold text-xl mb-4">Bestellte Artikel</h2>
+          <h2 className="font-semibold text-xl mb-4">Produktübersicht</h2>
           <div className="space-y-4">
             {order.items.map((item, index) => (
-              <div key={index} className="flex justify-between items-center py-3 border-b border-gray-200 last:border-0">
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-sm text-gray-600">Menge: {item.quantity}</p>
+              <div key={index} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
+                {/* Product Image */}
+                <div className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden bg-white flex items-center justify-center p-2 border border-gray-200">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="h-full w-full object-contain"
+                  />
                 </div>
-                <p className="font-semibold">€{(item.price * item.quantity).toFixed(2)}</p>
+                
+                {/* Product Details */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-lg text-gray-900 mb-1">
+                    {item.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-1">
+                    Menge: {item.quantity}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Einzelpreis: €{item.price.toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Price */}
+                <div className="text-right flex-shrink-0">
+                  <p className="text-lg font-bold text-[#EB1A2B]">
+                    €{(item.price * item.quantity).toFixed(2)}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -164,11 +199,11 @@ export default function OrderDetail() {
           <div className="space-y-3">
             <div className="flex justify-between text-gray-700">
               <span>Zwischensumme</span>
-              <span>€{(order.total - 4.99).toFixed(2)}</span>
+              <span>€{order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-gray-700">
               <span>Versand</span>
-              <span>€4.99</span>
+              <span>€{(order.total - order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)).toFixed(2)}</span>
             </div>
             <div className="border-t border-gray-200 pt-3 flex justify-between font-bold text-xl">
               <span>Gesamt</span>

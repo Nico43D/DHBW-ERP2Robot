@@ -17,6 +17,7 @@ export interface Order {
     name: string;
     quantity: number;
     price: number;
+    image: string;
   }>;
 }
 
@@ -54,17 +55,18 @@ function getShippingStatusBadge(status: Order['shippingStatus']) {
 }
 
 export default function Orders() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isSimplifiedMode } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    // Load orders from localStorage
+    // Load orders from localStorage (use different key for demo mode)
     if (user) {
-      const allOrders = JSON.parse(localStorage.getItem('duale-orders') || '[]');
+      const ordersKey = isSimplifiedMode ? 'duale-demo-orders' : 'duale-orders';
+      const allOrders = JSON.parse(localStorage.getItem(ordersKey) || '[]');
       const userOrders = allOrders.filter((order: Order) => order.id.startsWith(user.id));
       setOrders(userOrders);
     }
-  }, [user]);
+  }, [user, isSimplifiedMode]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -102,6 +104,17 @@ export default function Orders() {
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">
           Meine Bestellungen
         </h1>
+
+        {isSimplifiedMode && orders.length > 0 && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-lg">
+            <p className="text-sm font-semibold text-amber-900">
+              📦 Demo-Version Bestellungen
+            </p>
+            <p className="text-xs text-amber-800 mt-1">
+              Diese Bestellungen wurden in der Demo-Version erstellt
+            </p>
+          </div>
+        )}
 
         <div className="space-y-4">
           {orders.map((order) => (

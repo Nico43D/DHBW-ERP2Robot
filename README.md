@@ -1,7 +1,7 @@
 
-  # E-commerce website design
+  # Duale Süßigkeiten - Wolff
 
-  This is a code bundle for E-commerce website design. The original project is available at https://www.figma.com/design/o305f8TipHjElF629FAhSd/E-commerce-website-design.
+  This is a code bundle for Duale Süßigkeiten - Wolff. The original project is available at https://www.figma.com/design/o305f8TipHjElF629FAhSd/Duale-S%C3%BC%C3%9Figkeiten---Wolff.
 
   ## Running the code
 
