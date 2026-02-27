@@ -9,6 +9,9 @@ export interface Product {
   price: number;
   image: string;
   details: string[];
+  fullDescription: string;
+  ingredients: string[];
+  allergens: string[];
 }
 
 export const products: Product[] = [
@@ -24,6 +27,29 @@ export const products: Product[] = [
       'Mit frischer Milch',
       'Einzeln verpackt für unterwegs',
       'Perfekt zum Kaffee'
+    ],
+    fullDescription: 'Knoppers ist die knusprige Pause für zwischendurch! Die beliebte Waffelschnitte kombiniert fünf köstliche Schichten: zwei knusprige Waffelschichten umhüllen eine cremige Haselnussfüllung und eine Milchcreme, gekrönt von einer feinen Schicht Kakaocreme. Perfekt für den kleinen Hunger am Vormittag oder einfach als leckerer Snack für unterwegs.',
+    ingredients: [
+      'Zucker',
+      'Pflanzliche Fette (Palm, Shea)',
+      'Weizenmehl',
+      'Haselnüsse (10%)',
+      'Süßmolkenpulver',
+      'Magermilchpulver',
+      'Kakaopulver',
+      'Emulgator Sojalecithin',
+      'Kakaomasse',
+      'Feuchthaltemittel (Sorbit)',
+      'Glukosesirup',
+      'Speisesalz',
+      'Backtriebmittel (Natriumhydrogencarbonat)',
+      'Vollmilchpulver',
+      'Aroma',
+      'Kakaobutter'
+    ],
+    allergens: [
+      'Enthält Gluten, Milch, Haselnüsse und Soja',
+      'Kann Spuren von anderen Schalenfrüchten und Erdnüssen enthalten'
     ]
   },
   {
@@ -38,6 +64,25 @@ export const products: Product[] = [
       'Ideal für Genussmomente',
       'Perfekt zum Verschenken',
       'Premium Qualität'
+    ],
+    fullDescription: 'Nougat Happen sind kleine Kostbarkeiten für echte Genießer. Jede Praline besteht aus einem zartschmelzenden Nougat-Kern, der von feiner Vollmilchschokolade umhüllt ist. Die perfekte Balance zwischen süß und nussig macht diese Pralinen zu einem unwiderstehlichen Genuss. Ob als kleine Belohnung für zwischendurch oder als besonderes Geschenk – Nougat Happen begeistern jeden Schokoladenliebhaber.',
+    ingredients: [
+      'Zucker',
+      'Pflanzliche Fette (Palm, Shea, Sal)',
+      'Kakaobutter',
+      'Haselnüsse (8%)',
+      'Kakaomasse',
+      'Süßmolkenpulver',
+      'Vollmilchpulver',
+      'Emulgator Sojalecithin',
+      'Glukosesirup',
+      'Feuchthaltemittel (Glycerin)',
+      'Aroma',
+      'Speisesalz'
+    ],
+    allergens: [
+      'Enthält Milch, Haselnüsse und Soja',
+      'Kann Spuren von Gluten, Erdnüssen und anderen Schalenfrüchten enthalten'
     ]
   },
   {
@@ -52,6 +97,24 @@ export const products: Product[] = [
       'Knusprige Waffel-Hülle',
       'Edle Schokoladen-Glasur',
       'Das Original seit Jahren'
+    ],
+    fullDescription: 'Ferrero Küsschen sind die Verkörperung purer Genussmomente. Im Herzen jeder goldenen Praline verbirgt sich eine ganze Haselnuss, umhüllt von einer zartschmelzenden Nougatcreme und einer hauchzarten, knusprigen Waffel. Die feine Milchschokolade und die knusprigen Haselnussstückchen bilden die perfekte Vollendung. Ein zeitloser Klassiker, der zu jedem Anlass passt und immer für Freude sorgt.',
+    ingredients: [
+      'Milchschokolade 30% (Zucker, Kakaobutter, Kakaomasse, Magermilchpulver, Butterreinfett, Emulgator Sojalecithin, Vanillin)',
+      'Haselnüsse (28,5%)',
+      'Zucker',
+      'Palmöl',
+      'Weizenmehl',
+      'Molkenpulver',
+      'Fettarmer Kakao',
+      'Emulgator Sojalecithin',
+      'Backpulver (Natriumhydrogencarbonat, Ammoniumhydrogencarbonat)',
+      'Speisesalz',
+      'Aroma'
+    ],
+    allergens: [
+      'Enthält Gluten, Milch, Haselnüsse und Soja',
+      'Kann Spuren von anderen Schalenfrüchten und Erdnüssen enthalten'
     ]
   }
 ];
