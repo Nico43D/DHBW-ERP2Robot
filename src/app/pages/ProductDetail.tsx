@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { products } from '../data/products';
 import { Button } from '../components/Button';
+import { Card } from '../components/Card';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { useCart } from '../contexts/CartContext';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, ShoppingCart, AlertCircle } from 'lucide-react';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -53,14 +54,16 @@ export default function ProductDetail() {
           Zurück
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
           {/* Product Image */}
-          <div className="aspect-square rounded-lg overflow-hidden bg-white shadow-md flex items-center justify-center p-8">
-            <img
-              src={product.image}
-              alt={product.name}
-              className="h-full w-full object-contain"
-            />
+          <div>
+            <Card className="aspect-square rounded-lg overflow-hidden bg-white p-8 flex items-center justify-center">
+              <img
+                src={product.image}
+                alt={product.name}
+                className="h-full w-full object-contain"
+              />
+            </Card>
           </div>
 
           {/* Product Info */}
@@ -76,39 +79,89 @@ export default function ProductDetail() {
               €{product.price.toFixed(2)}
             </div>
 
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="font-semibold text-lg mb-3">Produktdetails</h3>
-              <ul className="space-y-2">
-                {product.details.map((detail, index) => (
-                  <li key={index} className="flex items-start gap-2 text-gray-700">
-                    <Check className="h-5 w-5 text-[#EB1A2B] flex-shrink-0 mt-0.5" />
-                    <span>{detail}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <Card className="p-6 bg-gray-50">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Beschreibung</h3>
+              <p className="text-gray-700 leading-relaxed">{product.fullDescription}</p>
+            </Card>
 
-            <div className="border-t border-gray-200 pt-6 space-y-4">
-              <div className="flex items-center gap-4">
-                <span className="font-medium">Menge:</span>
+            <Card className="p-6 border-t-4 border-[#EB1A2B]">
+              <div className="flex items-center gap-4 mb-4">
+                <span className="font-semibold text-lg">Menge:</span>
                 <QuantityStepper value={quantity} onChange={setQuantity} />
               </div>
 
-              <div className="flex gap-3">
-                <Button onClick={handleAddToCart} size="lg" className="flex-1">
-                  {added ? (
-                    <>
-                      <Check className="h-5 w-5" />
-                      Hinzugefügt
-                    </>
-                  ) : (
-                    'In den Warenkorb'
-                  )}
-                </Button>
-              </div>
-            </div>
+              <Button onClick={handleAddToCart} size="lg" className="w-full">
+                {added ? (
+                  <>
+                    <Check className="h-5 w-5" />
+                    Hinzugefügt
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="h-5 w-5" />
+                    In den Warenkorb
+                  </>
+                )}
+              </Button>
+            </Card>
           </div>
         </div>
+
+        {/* Additional Product Information */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Ingredients */}
+          <Card className="p-6 md:p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+              <div className="w-2 h-8 bg-[#EB1A2B] rounded"></div>
+              Inhaltsstoffe
+            </h2>
+            <ul className="space-y-2">
+              {product.ingredients.map((ingredient, index) => (
+                <li key={index} className="flex items-start gap-3 text-gray-700">
+                  <span className="text-[#EB1A2B] font-bold mt-1">•</span>
+                  <span>{ingredient}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          {/* Allergens */}
+          <Card className="p-6 md:p-8 bg-amber-50 border-2 border-amber-200">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+              <AlertCircle className="h-6 w-6 text-amber-600" />
+              Allergene und Spurenhinweise
+            </h2>
+            <div className="space-y-3">
+              {product.allergens.map((allergen, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-amber-600 rounded-full flex items-center justify-center text-white text-sm font-bold mt-0.5">
+                    !
+                  </div>
+                  <p className="text-gray-900 font-medium">{allergen}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 pt-6 border-t border-amber-300">
+              <p className="text-sm text-gray-700">
+                <strong>Hinweis:</strong> Bitte beachten Sie die Allergenhinweise, wenn Sie unter 
+                Lebensmittelallergien oder -unverträglichkeiten leiden.
+              </p>
+            </div>
+          </Card>
+        </div>
+
+        {/* Product Highlights */}
+        <Card className="p-6 md:p-8 mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Produkthighlights</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {product.details.map((detail, index) => (
+              <div key={index} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                <Check className="h-5 w-5 text-[#EB1A2B] flex-shrink-0 mt-0.5" />
+                <span className="text-gray-700">{detail}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
     </div>
   );

@@ -26,6 +26,8 @@ interface AuthContextType {
   updateAddresses: (billingAddress: Address, deliveryAddress: Address) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  isSimplifiedMode: boolean;
+  toggleSimplifiedMode: () => void;
 }
 
 export interface RegisterData {
@@ -39,20 +41,72 @@ export interface RegisterData {
   deliveryAddress: Address;
 }
 
+// Demo user for Demo-Version
+const DEMO_USER: User = {
+  id: 'demo-user',
+  email: 'demo@duale-suessigkeiten.de',
+  firstName: 'Demo',
+  lastName: 'Benutzer',
+  customerType: 'private',
+  billingAddress: {
+    street: 'Musterstraße',
+    houseNumber: '42',
+    zipCode: '10115',
+    city: 'Berlin',
+    country: 'Deutschland',
+  },
+  deliveryAddress: {
+    street: 'Musterstraße',
+    houseNumber: '42',
+    zipCode: '10115',
+    city: 'Berlin',
+    country: 'Deutschland',
+  },
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isSimplifiedMode, setIsSimplifiedMode] = useState(false);
 
   useEffect(() => {
-    // Load user from localStorage on mount
-    const savedUser = localStorage.getItem('duale-user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    // Load simplified mode preference from localStorage
+    const savedSimplifiedMode = localStorage.getItem('simplified-mode');
+    if (savedSimplifiedMode === 'true') {
+      setIsSimplifiedMode(true);
+      setUser(DEMO_USER);
+    } else {
+      // Load user from localStorage on mount
+      const savedUser = localStorage.getItem('duale-user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
     }
   }, []);
 
+  const toggleSimplifiedMode = () => {
+    const newMode = !isSimplifiedMode;
+    setIsSimplifiedMode(newMode);
+    localStorage.setItem('simplified-mode', newMode.toString());
+    
+    if (newMode) {
+      // Switch to simplified mode
+      setUser(DEMO_USER);
+    } else {
+      // Switch back to normal mode
+      const savedUser = localStorage.getItem('duale-user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      } else {
+        setUser(null);
+      }
+    }
+  };
+
   const login = (email: string, password: string): boolean => {
+    if (isSimplifiedMode) return true; // Always logged in as demo user
+    
     // Mock login - check if user exists in localStorage
     const users = JSON.parse(localStorage.getItem('duale-users') || '[]');
     const foundUser = users.find((u: any) => u.email === email && u.password === password);
@@ -67,6 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = (data: RegisterData): boolean => {
+    if (isSimplifiedMode) return true; // Always logged in as demo user
+    
     // Mock registration
     const users = JSON.parse(localStorage.getItem('duale-users') || '[]');
     
@@ -90,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateAddresses = (billingAddress: Address, deliveryAddress: Address) => {
-    if (!user) return;
+    if (!user || isSimplifiedMode) return; // Don't update demo user
 
     const updatedUser = {
       ...user,
@@ -111,12 +167,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    if (isSimplifiedMode) return; // Can't logout in simplified mode
+    
     setUser(null);
     localStorage.removeItem('duale-user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, updateAddresses, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        login, 
+        register, 
+        updateAddresses, 
+        logout, 
+        isAuthenticated: !!user,
+        isSimplifiedMode,
+        toggleSimplifiedMode,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
