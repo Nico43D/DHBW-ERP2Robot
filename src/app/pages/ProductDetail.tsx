@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { products } from '../data/products';
+import { fetchCatalog, mapApiProductToProduct, Product, FALLBACK_IMAGE } from '../services/api';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { useCart } from '../contexts/CartContext';
-import { ArrowLeft, Check, ShoppingCart, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Check, ShoppingCart, Package, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -13,8 +13,60 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const product = products.find((p) => p.id === id);
+  const loadProduct = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const apiProducts = await fetchCatalog();
+      const apiProduct = apiProducts.find((p) => p.id === id);
+
+      if (apiProduct) {
+        setProduct(mapApiProductToProduct(apiProduct));
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden des Produkts:', err);
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+    }
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadProduct();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12 flex items-center justify-center">
+        <Loader2 className="h-12 w-12 text-[#EB1A2B] animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-center py-20">
+            <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Fehler beim Laden
+            </h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Button onClick={loadProduct} className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Erneut versuchen
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -29,7 +81,11 @@ export default function ProductDetail() {
     );
   }
 
+  const isInStock = product.stock === undefined || product.stock > 0;
+
   const handleAddToCart = () => {
+    if (!isInStock) return;
+
     addToCart(
       {
         productId: product.id,
@@ -54,15 +110,31 @@ export default function ProductDetail() {
           Zurück
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Product Image */}
           <div>
-            <Card className="aspect-square rounded-lg overflow-hidden bg-white p-8 flex items-center justify-center">
+            <Card className="aspect-square rounded-lg overflow-hidden bg-white p-8 flex items-center justify-center relative">
               <img
                 src={product.image}
                 alt={product.name}
                 className="h-full w-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                }}
               />
+              {/* Lagerbestand-Badge */}
+              {product.stock !== undefined && (
+                <div
+                  className={`absolute top-4 right-4 px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 ${
+                    product.stock > 0
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}
+                >
+                  <Package className="h-4 w-4" />
+                  {product.stock > 0 ? `${product.stock} auf Lager` : 'Nicht verfügbar'}
+                </div>
+              )}
             </Card>
           </div>
 
@@ -72,26 +144,27 @@ export default function ProductDetail() {
               <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
                 {product.name}
               </h1>
-              <p className="text-xl text-gray-600">{product.description}</p>
             </div>
 
             <div className="text-4xl font-bold text-[#EB1A2B]">
               €{product.price.toFixed(2)}
             </div>
 
-            <Card className="p-6 bg-gray-50">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Beschreibung</h3>
-              <p className="text-gray-700 leading-relaxed">{product.fullDescription}</p>
-            </Card>
-
             <Card className="p-6 border-t-4 border-[#EB1A2B]">
               <div className="flex items-center gap-4 mb-4">
                 <span className="font-semibold text-lg">Menge:</span>
-                <QuantityStepper value={quantity} onChange={setQuantity} />
+                <QuantityStepper value={quantity} onChange={setQuantity} max={product.stock} />
               </div>
 
-              <Button onClick={handleAddToCart} size="lg" className="w-full">
-                {added ? (
+              <Button
+                onClick={handleAddToCart}
+                size="lg"
+                className="w-full"
+                disabled={!isInStock}
+              >
+                {!isInStock ? (
+                  'Nicht verfügbar'
+                ) : added ? (
                   <>
                     <Check className="h-5 w-5" />
                     Hinzugefügt
@@ -106,62 +179,6 @@ export default function ProductDetail() {
             </Card>
           </div>
         </div>
-
-        {/* Additional Product Information */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Ingredients */}
-          <Card className="p-6 md:p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-              <div className="w-2 h-8 bg-[#EB1A2B] rounded"></div>
-              Inhaltsstoffe
-            </h2>
-            <ul className="space-y-2">
-              {product.ingredients.map((ingredient, index) => (
-                <li key={index} className="flex items-start gap-3 text-gray-700">
-                  <span className="text-[#EB1A2B] font-bold mt-1">•</span>
-                  <span>{ingredient}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          {/* Allergens */}
-          <Card className="p-6 md:p-8 bg-amber-50 border-2 border-amber-200">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-              <AlertCircle className="h-6 w-6 text-amber-600" />
-              Allergene und Spurenhinweise
-            </h2>
-            <div className="space-y-3">
-              {product.allergens.map((allergen, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 bg-amber-600 rounded-full flex items-center justify-center text-white text-sm font-bold mt-0.5">
-                    !
-                  </div>
-                  <p className="text-gray-900 font-medium">{allergen}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 pt-6 border-t border-amber-300">
-              <p className="text-sm text-gray-700">
-                <strong>Hinweis:</strong> Bitte beachten Sie die Allergenhinweise, wenn Sie unter 
-                Lebensmittelallergien oder -unverträglichkeiten leiden.
-              </p>
-            </div>
-          </Card>
-        </div>
-
-        {/* Product Highlights */}
-        <Card className="p-6 md:p-8 mt-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Produkthighlights</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {product.details.map((detail, index) => (
-              <div key={index} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                <Check className="h-5 w-5 text-[#EB1A2B] flex-shrink-0 mt-0.5" />
-                <span className="text-gray-700">{detail}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
       </div>
     </div>
   );

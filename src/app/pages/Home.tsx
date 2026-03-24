@@ -1,10 +1,31 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '../components/Button';
-import { products } from '../data/products';
-import { ShoppingBag, Truck, CreditCard } from 'lucide-react';
+import { fetchCatalog, mapApiProductToProduct, Product, FALLBACK_IMAGE } from '../services/api';
+import { ShoppingBag, Truck, CreditCard, Loader2, AlertCircle } from 'lucide-react';
 
 export default function Home() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const apiProducts = await fetchCatalog();
+        // Nur die ersten 3 Produkte für die Startseite
+        setProducts(apiProducts.slice(0, 3).map(mapApiProductToProduct));
+      } catch (err) {
+        console.error('Fehler beim Laden der Produkte:', err);
+        setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -73,30 +94,52 @@ export default function Home() {
               Entdecken Sie unsere sorgfältig ausgewählten Premium-Süßigkeiten
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {products.map((product) => (
-              <Link key={product.id} to={`/products/${product.id}`} className="group">
-                <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="aspect-square overflow-hidden bg-white flex items-center justify-center p-6">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="h-full w-full object-contain group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <h3 className="font-semibold text-xl mb-2 group-hover:text-[#EB1A2B] transition-colors">
-                      {product.name}
-                    </h3>
-                    <p className="text-gray-600 mb-3">{product.description}</p>
-                    <div className="text-2xl font-bold text-[#EB1A2B]">
-                      €{product.price.toFixed(2)}
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-10 w-10 text-[#EB1A2B] animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center py-12">
+              <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+              <p className="text-gray-600 mb-4">Produkte konnten nicht geladen werden</p>
+              <Link to="/shop">
+                <Button>Zum Shop</Button>
+              </Link>
+            </div>
+          ) : products.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {products.map((product) => (
+                <Link key={product.id} to={`/products/${product.id}`} className="group">
+                  <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                    <div className="aspect-square overflow-hidden bg-white flex items-center justify-center p-6">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="h-full w-full object-contain group-hover:scale-105 transition-transform"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                        }}
+                      />
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-semibold text-xl mb-2 group-hover:text-[#EB1A2B] transition-colors">
+                        {product.name}
+                      </h3>
+                      <div className="text-2xl font-bold text-[#EB1A2B]">
+                        €{product.price.toFixed(2)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-600">
+              Keine Produkte verfügbar
+            </p>
+          )}
+
           <div className="text-center mt-12">
             <Link to="/shop">
               <Button size="lg">

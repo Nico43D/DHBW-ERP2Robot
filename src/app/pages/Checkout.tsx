@@ -4,7 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { MapPin, CreditCard as CreditCardIcon } from 'lucide-react';
+import { MapPin, CreditCard as CreditCardIcon, Loader2, AlertCircle } from 'lucide-react';
+import { createOrder, OrderData } from '../services/api';
 
 interface CreditCardData {
   cardHolder: string;
@@ -41,6 +42,8 @@ export default function Checkout() {
 
   const [errors, setErrors] = useState<Partial<CreditCardData>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof CreditCardData, boolean>>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!isAuthenticated) {
     return <Navigate to="/login?redirect=checkout&message=login-required" replace />;
@@ -159,7 +162,7 @@ export default function Checkout() {
     return isValid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate credit card if selected
@@ -167,40 +170,66 @@ export default function Checkout() {
       return;
     }
 
-    // Create order
-    const orderNumber = Math.random().toString(36).substr(2, 9).toUpperCase();
-    const order = {
-      id: `${user?.id}-${Date.now()}`,
-      orderNumber,
-      date: new Date().toISOString(),
-      total: totalPrice + (formData.shippingMethod === 'express' ? 9.99 : 4.99),
-      orderStatus: 'processing' as const,
-      invoiceStatus: formData.paymentMethod === 'rechnung' ? 'pending' as const : 'paid' as const,
-      shippingStatus: 'preparing' as const,
-      items: items.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        image: item.image,
-      })),
-      billingAddress: user!.billingAddress,
-      deliveryAddress: user!.deliveryAddress,
-      paymentMethod: formData.paymentMethod,
-    };
+    setIsSubmitting(true);
+    setSubmitError(null);
 
-    // Save order to localStorage (use different key for demo mode)
-    const ordersKey = isSimplifiedMode ? 'duale-demo-orders' : 'duale-orders';
-    const orders = JSON.parse(localStorage.getItem(ordersKey) || '[]');
-    orders.push(order);
-    localStorage.setItem(ordersKey, JSON.stringify(orders));
+    try {
+      // Bestellung an iDempiere senden
+      const orderData: OrderData = {
+        lines: items.map((item) => ({
+          M_Product_ID: Number(item.productId),
+          QtyOrdered: item.quantity,
+        })),
+        POReference: `WebShop-${Date.now()}`,
+      };
 
-    // Navigate to confirmation FIRST, then clear cart after navigation is initiated
-    navigate(`/order-confirmation/${orderNumber}`, { replace: true });
-    
-    // Clear cart after a brief delay to ensure navigation has started
-    setTimeout(() => {
-      clearCart();
-    }, 100);
+      const apiResponse = await createOrder(orderData);
+
+      // Lokale Bestellung für Anzeige erstellen
+      const orderNumber = apiResponse.DocumentNo || Math.random().toString(36).substr(2, 9).toUpperCase();
+      const order = {
+        id: `${user?.id}-${Date.now()}`,
+        orderNumber,
+        idempiereOrderId: apiResponse.id,
+        date: new Date().toISOString(),
+        total: totalPrice + (formData.shippingMethod === 'express' ? 9.99 : 4.99),
+        orderStatus: 'processing' as const,
+        invoiceStatus: formData.paymentMethod === 'rechnung' ? ('pending' as const) : ('paid' as const),
+        shippingStatus: 'preparing' as const,
+        items: items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          image: item.image,
+        })),
+        billingAddress: user!.billingAddress,
+        deliveryAddress: user!.deliveryAddress,
+        paymentMethod: formData.paymentMethod,
+      };
+
+      // Save order to localStorage (use different key for demo mode)
+      const ordersKey = isSimplifiedMode ? 'duale-demo-orders' : 'duale-orders';
+      const orders = JSON.parse(localStorage.getItem(ordersKey) || '[]');
+      orders.push(order);
+      localStorage.setItem(ordersKey, JSON.stringify(orders));
+
+      // Navigate to confirmation FIRST, then clear cart after navigation is initiated
+      navigate(`/order-confirmation/${orderNumber}`, { replace: true });
+
+      // Clear cart after a brief delay to ensure navigation has started
+      setTimeout(() => {
+        clearCart();
+      }, 100);
+    } catch (error) {
+      console.error('Fehler beim Erstellen der Bestellung:', error);
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Beim Erstellen der Bestellung ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const shippingCost = formData.shippingMethod === 'express' ? 9.99 : 4.99;
@@ -509,8 +538,24 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <Button type="submit" size="lg" className="w-full">
-                  {isSimplifiedMode ? 'Bestellung abschließen' : 'Zahlungspflichtig bestellen'}
+                {submitError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800">{submitError}</p>
+                  </div>
+                )}
+
+                <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Bestellung wird verarbeitet...
+                    </>
+                  ) : isSimplifiedMode ? (
+                    'Bestellung abschließen'
+                  ) : (
+                    'Zahlungspflichtig bestellen'
+                  )}
                 </Button>
 
                 <p className="text-xs text-gray-600 mt-4 text-center">
