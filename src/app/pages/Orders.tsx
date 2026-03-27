@@ -55,8 +55,15 @@ function getShippingStatusBadge(status: Order['shippingStatus']) {
 }
 
 export default function Orders() {
-  const { user, isAuthenticated, isSimplifiedMode } = useAuth();
+  const { user, isAuthenticated, isSimplifiedMode, isLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+
+  // Scroll to top when loading completes
+  useEffect(() => {
+    if (!isLoading) {
+      window.scrollTo(0, 0);
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     // Load orders from localStorage (use different key for demo mode)
@@ -67,6 +74,15 @@ export default function Orders() {
       setOrders(userOrders);
     }
   }, [user, isSimplifiedMode]);
+
+  // Warte bis Session-Check abgeschlossen ist
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Lädt...</div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

@@ -27,10 +27,11 @@ export default function Register() {
     deliveryCountry: 'Deutschland',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
@@ -90,21 +91,29 @@ export default function Register() {
           country: formData.deliveryCountry,
         };
 
-    const success = register({
-      email: formData.email,
-      password: formData.password,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      customerType: formData.customerType,
-      company: formData.company || undefined,
-      billingAddress,
-      deliveryAddress,
-    });
+    setIsLoading(true);
 
-    if (success) {
-      navigate('/dashboard');
-    } else {
-      setErrors({ email: 'Ein Konto mit dieser E-Mail-Adresse existiert bereits' });
+    try {
+      const result = await register({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        customerType: formData.customerType,
+        company: formData.company || undefined,
+        billingAddress,
+        deliveryAddress,
+      });
+
+      if (result.success) {
+        navigate('/dashboard');
+      } else {
+        setErrors({ email: result.error || 'Registrierung fehlgeschlagen' });
+      }
+    } catch (error) {
+      setErrors({ email: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -360,8 +369,8 @@ export default function Register() {
               </div>
             )}
 
-            <Button type="submit" size="lg" className="w-full">
-              Konto erstellen
+            <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Wird registriert...' : 'Konto erstellen'}
             </Button>
           </form>
 

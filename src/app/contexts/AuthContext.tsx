@@ -22,7 +22,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (data: RegisterData) => boolean;
+  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   updateAddresses: (billingAddress: Address, deliveryAddress: Address) => void;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -148,29 +148,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = (data: RegisterData): boolean => {
-    if (isSimplifiedMode) return true; // Always logged in as demo user
+  const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
+    if (isSimplifiedMode) return { success: true };
 
-    // Mock registration - TODO: Implement real registration
-    const users = JSON.parse(localStorage.getItem('duale-users') || '[]');
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(data),
+      });
 
-    // Check if user already exists
-    if (users.some((u: any) => u.email === data.email)) {
-      return false;
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setUser(result.user);
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: result.message || 'Registrierung fehlgeschlagen'
+        };
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      return {
+        success: false,
+        error: 'Netzwerkfehler bei der Registrierung'
+      };
     }
-
-    const newUser = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...data,
-    };
-
-    users.push(newUser);
-    localStorage.setItem('duale-users', JSON.stringify(users));
-
-    const { password: _, ...userWithoutPassword } = newUser;
-    setUser(userWithoutPassword);
-    localStorage.setItem('duale-user', JSON.stringify(userWithoutPassword));
-    return true;
   };
 
   const updateAddresses = (billingAddress: Address, deliveryAddress: Address) => {

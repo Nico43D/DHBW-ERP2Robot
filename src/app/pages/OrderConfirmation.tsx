@@ -20,8 +20,15 @@ function getOrderStatusText(status: Order['orderStatus']) {
 
 export default function OrderConfirmation() {
   const { orderNumber } = useParams();
-  const { isAuthenticated, isSimplifiedMode } = useAuth();
+  const { isAuthenticated, isSimplifiedMode, isLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
+
+  // Scroll to top when loading completes
+  useEffect(() => {
+    if (!isLoading) {
+      window.scrollTo(0, 0);
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     if (orderNumber) {
@@ -41,6 +48,15 @@ export default function OrderConfirmation() {
       sessionStorage.removeItem('order-confirmation-active');
     };
   }, [orderNumber, isSimplifiedMode]);
+
+  // Warte bis Session-Check abgeschlossen ist
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Lädt...</div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

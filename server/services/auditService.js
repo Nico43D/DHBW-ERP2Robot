@@ -102,6 +102,38 @@ export function logLogout(userId, email, ip, userAgent) {
 }
 
 /**
+ * Helper: Erstellt Audit-Log für erfolgreiche Registrierung
+ */
+export function logRegistration(userId, email, ip, userAgent) {
+  logAudit({
+    userId,
+    email,
+    action: 'REGISTER',
+    resource: 'auth',
+    details: {},
+    ip,
+    userAgent,
+    success: true,
+  });
+}
+
+/**
+ * Helper: Erstellt Audit-Log für fehlgeschlagene Registrierung
+ */
+export function logRegistrationFailure(email, ip, userAgent, reason) {
+  logAudit({
+    userId: null,
+    email,
+    action: 'REGISTER_FAILED',
+    resource: 'auth',
+    details: { reason },
+    ip,
+    userAgent,
+    success: false,
+  });
+}
+
+/**
  * Helper: Erstellt Audit-Log für Order-Erstellung
  */
 export function logOrderCreation(userId, email, orderId, orderTotal, ip, userAgent) {

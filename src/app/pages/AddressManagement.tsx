@@ -7,7 +7,7 @@ import { Card } from '../components/Card';
 import { ArrowLeft } from 'lucide-react';
 
 export default function AddressManagement() {
-  const { user, isAuthenticated, updateAddresses } = useAuth();
+  const { user, isAuthenticated, updateAddresses, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -26,6 +26,13 @@ export default function AddressManagement() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Scroll to top when loading completes
+  useEffect(() => {
+    if (!isLoading) {
+      window.scrollTo(0, 0);
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     if (user) {
@@ -48,6 +55,15 @@ export default function AddressManagement() {
       });
     }
   }, [user]);
+
+  // Warte bis Session-Check abgeschlossen ist
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Lädt...</div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

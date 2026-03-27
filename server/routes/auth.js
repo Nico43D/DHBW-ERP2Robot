@@ -1,12 +1,15 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { authenticateUser, getBusinessPartnerById } from '../services/authService.js';
+import { registerUser } from '../services/registrationService.js';
 import { JWT_SECRET, JWT_EXPIRES_IN } from '../config.js';
 import { loginRateLimiter } from '../middleware/security.js';
 import {
   logLoginSuccess,
   logLoginFailure,
   logLogout,
+  logRegistration,
+  logRegistrationFailure,
 } from '../services/auditService.js';
 
 const router = express.Router();
@@ -86,6 +89,103 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
     logLoginFailure(req.body.email, ip, userAgent, 'server_error');
     res.status(500).json({
       message: 'Serverfehler bei der Anmeldung'
+    });
+  }
+});
+
+/**
+ * POST /api/auth/register
+ * Registrierung eines neuen Users
+ * Erstellt BusinessPartner, Location, Contact und weist Rolle zu
+ */
+router.post('/auth/register', loginRateLimiter, async (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const userAgent = req.get('user-agent') || 'unknown';
+
+  try {
+    const registerData = req.body;
+
+    // Validierung
+    if (!registerData.email || !registerData.password) {
+      logRegistrationFailure(registerData.email, ip, userAgent, 'missing_credentials');
+      return res.status(400).json({
+        message: 'Email und Passwort sind erforderlich'
+      });
+    }
+
+    if (!registerData.firstName || !registerData.lastName) {
+      logRegistrationFailure(registerData.email, ip, userAgent, 'missing_name');
+      return res.status(400).json({
+        message: 'Vor- und Nachname sind erforderlich'
+      });
+    }
+
+    if (!registerData.billingAddress) {
+      logRegistrationFailure(registerData.email, ip, userAgent, 'missing_address');
+      return res.status(400).json({
+        message: 'Rechnungsadresse ist erforderlich'
+      });
+    }
+
+    // Registrierung durchführen
+    const result = await registerUser(registerData);
+
+    if (result.error) {
+      logRegistrationFailure(registerData.email, ip, userAgent, result.error);
+
+      // Spezifische Fehlercodes
+      if (result.error === 'EMAIL_EXISTS') {
+        return res.status(409).json({ message: result.message });
+      }
+      return res.status(400).json({ message: result.message });
+    }
+
+    const user = result.user;
+
+    // JWT erstellen (User ist nach Registrierung eingeloggt)
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        businessPartnerId: user.businessPartnerId,
+        bpLocationId: user.bpLocationId,
+        contactId: user.contactId
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    // Cookie setzen
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    // Audit Log
+    logRegistration(user.id, user.email, ip, userAgent);
+
+    // User-Daten zurückgeben
+    res.status(201).json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        customerType: user.customerType,
+        company: user.company,
+        billingAddress: user.billingAddress,
+        deliveryAddress: user.deliveryAddress,
+      },
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    logRegistrationFailure(req.body?.email, ip, userAgent, 'server_error');
+    res.status(500).json({
+      message: 'Serverfehler bei der Registrierung'
     });
   }
 });
