@@ -49,3 +49,9 @@ export const ORDER_CONFIG = {
 
 // Token-Lebensdauer: 20 Minuten bevor Neurauthentifizierung erforderlich ist
 export const TOKEN_TTL_MS = 20 * 60 * 1000;
+
+// JWT Secret für User-Session-Tokens
+export const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// JWT Token Lebensdauer: 7 Tage
+export const JWT_EXPIRES_IN = '7d';

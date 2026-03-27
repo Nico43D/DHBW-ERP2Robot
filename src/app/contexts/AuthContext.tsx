@@ -21,13 +21,14 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   register: (data: RegisterData) => boolean;
   updateAddresses: (billingAddress: Address, deliveryAddress: Address) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   isSimplifiedMode: boolean;
   toggleSimplifiedMode: () => void;
+  isLoading: boolean;
 }
 
 export interface RegisterData {
@@ -69,6 +70,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isSimplifiedMode, setIsSimplifiedMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Load simplified mode preference from localStorage
@@ -76,56 +78,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (savedSimplifiedMode === 'true') {
       setIsSimplifiedMode(true);
       setUser(DEMO_USER);
+      setIsLoading(false);
     } else {
-      // Load user from localStorage on mount
-      const savedUser = localStorage.getItem('duale-user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
+      // Check session with backend
+      checkSession();
     }
   }, []);
+
+  const checkSession = async () => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include', // Wichtig: Cookies mitsenden
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      } else {
+        // 401 ist erwartet, wenn kein User eingeloggt ist - kein Fehler
+        setUser(null);
+      }
+    } catch (error) {
+      // Nur bei Netzwerkfehlern (nicht bei 401) loggen
+      console.debug('Session check network error:', error);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const toggleSimplifiedMode = () => {
     const newMode = !isSimplifiedMode;
     setIsSimplifiedMode(newMode);
     localStorage.setItem('simplified-mode', newMode.toString());
-    
+
     if (newMode) {
       // Switch to simplified mode
       setUser(DEMO_USER);
     } else {
       // Switch back to normal mode
-      const savedUser = localStorage.getItem('duale-user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      } else {
-        setUser(null);
-      }
+      setUser(null);
+      checkSession();
     }
   };
 
-  const login = (email: string, password: string): boolean => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     if (isSimplifiedMode) return true; // Always logged in as demo user
-    
-    // Mock login - check if user exists in localStorage
-    const users = JSON.parse(localStorage.getItem('duale-users') || '[]');
-    const foundUser = users.find((u: any) => u.email === email && u.password === password);
-    
-    if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('duale-user', JSON.stringify(userWithoutPassword));
-      return true;
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Wichtig: Cookies empfangen
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    return false;
   };
 
   const register = (data: RegisterData): boolean => {
     if (isSimplifiedMode) return true; // Always logged in as demo user
-    
-    // Mock registration
+
+    // Mock registration - TODO: Implement real registration
     const users = JSON.parse(localStorage.getItem('duale-users') || '[]');
-    
+
     // Check if user already exists
     if (users.some((u: any) => u.email === data.email)) {
       return false;
@@ -155,35 +183,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     setUser(updatedUser);
-    localStorage.setItem('duale-user', JSON.stringify(updatedUser));
+    // TODO: Update in backend
+  };
 
-    // Update in users list
-    const users = JSON.parse(localStorage.getItem('duale-users') || '[]');
-    const userIndex = users.findIndex((u: any) => u.id === user.id);
-    if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], billingAddress, deliveryAddress };
-      localStorage.setItem('duale-users', JSON.stringify(users));
+  const logout = async () => {
+    if (isSimplifiedMode) return; // Can't logout in simplified mode
+
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
     }
   };
 
-  const logout = () => {
-    if (isSimplifiedMode) return; // Can't logout in simplified mode
-    
-    setUser(null);
-    localStorage.removeItem('duale-user');
-  };
-
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        login, 
-        register, 
-        updateAddresses, 
-        logout, 
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        updateAddresses,
+        logout,
         isAuthenticated: !!user,
         isSimplifiedMode,
         toggleSimplifiedMode,
+        isLoading,
       }}
     >
       {children}

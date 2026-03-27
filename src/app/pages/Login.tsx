@@ -10,27 +10,48 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   const redirectTo = searchParams.get('redirect') || '/dashboard';
   const messageType = searchParams.get('message');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Email-Validierung
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    // Validierung
     if (!email || !password) {
       setError('Bitte füllen Sie alle Felder aus');
       return;
     }
 
-    const success = login(email, password);
-    if (success) {
-      navigate(`/${redirectTo}`);
-    } else {
-      setError('Ungültige E-Mail-Adresse oder Passwort');
+    if (!isValidEmail(email)) {
+      setError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const success = await login(email, password);
+      if (success) {
+        navigate(`/${redirectTo}`);
+      } else {
+        setError('Ungültige E-Mail-Adresse oder Passwort');
+      }
+    } catch (err) {
+      setError('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -82,8 +103,8 @@ export default function Login() {
               required
             />
 
-            <Button type="submit" size="lg" className="w-full">
-              Anmelden
+            <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Anmelden...' : 'Anmelden'}
             </Button>
           </form>
 
