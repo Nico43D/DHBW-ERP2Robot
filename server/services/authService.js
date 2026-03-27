@@ -84,11 +84,13 @@ export async function authenticateUser(email, password) {
     );
 
     let location = null;
+    let bpLocationId = null; // C_BPartner_Location_ID für Orders
     if (bpLocationRes.ok) {
       const bpLocationData = await bpLocationRes.json();
 
       if (bpLocationData.records && bpLocationData.records.length > 0) {
         const bpLocation = bpLocationData.records[0];
+        bpLocationId = bpLocation.id; // C_BPartner_Location_ID speichern
 
         // Hole C_Location Details mit GardenAdmin-Token
         if (bpLocation.C_Location_ID?.id) {
@@ -111,7 +113,8 @@ export async function authenticateUser(email, password) {
       company: businessPartner.IsCompany ? businessPartner.Name : undefined,
       businessPartnerId: businessPartner.id,
       contactId: contact?.id,
-      locationId: location?.id,
+      bpLocationId: bpLocationId, // C_BPartner_Location_ID für Orders
+      locationId: location?.id,   // C_Location_ID für Adress-Details
       billingAddress: location ? {
         street: location.Address1 || '',
         houseNumber: location.Address2 || '',
@@ -164,6 +167,7 @@ export async function getBusinessPartnerById(bpId) {
 
     // Lade Location mit GardenAdmin-Token
     let location = null;
+    let bpLocationId = null; // C_BPartner_Location_ID für Orders
     const bpLocationRes = await idempiereFetch(
       `/models/c_bpartner_location?$filter=C_BPartner_ID eq ${bpId}`
     );
@@ -173,6 +177,7 @@ export async function getBusinessPartnerById(bpId) {
 
       if (bpLocationData.records && bpLocationData.records.length > 0) {
         const bpLocation = bpLocationData.records[0];
+        bpLocationId = bpLocation.id; // C_BPartner_Location_ID speichern
 
         if (bpLocation.C_Location_ID?.id) {
           const cLocationId = bpLocation.C_Location_ID.id;
@@ -193,7 +198,8 @@ export async function getBusinessPartnerById(bpId) {
       company: businessPartner.IsCompany ? businessPartner.Name : undefined,
       businessPartnerId: businessPartner.id,
       contactId: contact?.id,
-      locationId: location?.id,
+      bpLocationId: bpLocationId, // C_BPartner_Location_ID für Orders
+      locationId: location?.id,   // C_Location_ID für Adress-Details
       billingAddress: location ? {
         street: location.Address1 || '',
         houseNumber: location.Address2 || '',

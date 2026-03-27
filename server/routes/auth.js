@@ -42,12 +42,14 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
       });
     }
 
-    // JWT erstellen mit BusinessPartner-ID
+    // JWT erstellen mit BusinessPartner-ID, Location-ID und Contact-ID
     const token = jwt.sign(
       {
         userId: user.id,
         email: user.email,
-        businessPartnerId: user.businessPartnerId
+        businessPartnerId: user.businessPartnerId,
+        bpLocationId: user.bpLocationId,
+        contactId: user.contactId
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }

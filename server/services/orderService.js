@@ -11,11 +11,14 @@ function toDateOnly(date = new Date()) {
  * 1. POST /models/c_order: Auftragskopf erstellen
  * 2. POST /models/c_orderline: Positionen hinzufügen (je Zeile)
  * 3. PUT /models/c_order/{id}: doc-action=CO ausführen (Complete Order)
+ *
+ * @param {Object} orderData - Bestelldaten (lines, POReference, etc.)
+ * @param {Object} userData - User-Daten aus JWT (businessPartnerId, bpLocationId, contactId)
  */
-export async function createAndCompleteOrder(orderData) {
+export async function createAndCompleteOrder(orderData, userData) {
   const today = toDateOnly();
-  
-  // Schritt 1: Auftragskopf aus Config + Request-Daten zusammensetzen
+
+  // Schritt 1: Auftragskopf aus Config + User-Daten zusammensetzen
   const orderHeader = {
     IsSOTrx: ORDER_CONFIG.IsSOTrx,
     IsSelfService: ORDER_CONFIG.IsSelfService,
@@ -24,17 +27,21 @@ export async function createAndCompleteOrder(orderData) {
     DateOrdered: orderData.DateOrdered || today,
     DatePromised: orderData.DatePromised || today,
     DateAcct: orderData.DateOrdered || today,
-    C_BPartner_ID: { id: orderData.C_BPartner_ID || ORDER_CONFIG.C_BPartner_ID },
-    C_BPartner_Location_ID: {
-      id: orderData.C_BPartner_Location_ID || ORDER_CONFIG.C_BPartner_Location_ID,
-    },
-    AD_User_ID: { id: ORDER_CONFIG.AD_User_ID },
-    Bill_BPartner_ID: { id: ORDER_CONFIG.Bill_BPartner_ID },
-    Bill_Location_ID: { id: ORDER_CONFIG.Bill_Location_ID },
-    Bill_User_ID: { id: ORDER_CONFIG.Bill_User_ID },
+
+    // User-spezifische Daten aus JWT
+    C_BPartner_ID: { id: userData.businessPartnerId },
+    C_BPartner_Location_ID: { id: userData.bpLocationId },
+    AD_User_ID: { id: userData.contactId },
+
+    // Billing = gleicher User (Bill_BPartner_ID = C_BPartner_ID)
+    Bill_BPartner_ID: { id: userData.businessPartnerId },
+    Bill_Location_ID: { id: userData.bpLocationId },
+    Bill_User_ID: { id: userData.contactId },
+
+    // Allgemeine Config-Werte
     SalesRep_ID: { id: ORDER_CONFIG.SalesRep_ID },
     C_PaymentTerm_ID: { id: ORDER_CONFIG.C_PaymentTerm_ID },
-    M_Warehouse_ID: { id: AUTH_CONFIG.parameters.warehouseId },
+    M_Warehouse_ID: { id: AUTH_CONFIG.parameters.warehouseId }, // Aus .env
     M_PriceList_ID: { id: ORDER_CONFIG.M_PriceList_ID },
     M_Shipper_ID: { id: ORDER_CONFIG.M_Shipper_ID },
     PaymentRule: { id: ORDER_CONFIG.PaymentRule },

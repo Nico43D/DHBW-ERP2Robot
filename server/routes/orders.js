@@ -29,8 +29,15 @@ router.post(
         return res.status(400).json({ message: 'Order payload requires non-empty lines array' });
       }
 
-      // Bestellung an iDempiere senden
-      const completedOrder = await createAndCompleteOrder(orderData);
+      // User-Daten aus JWT für die Order
+      const { businessPartnerId, bpLocationId, contactId } = req.user;
+
+      // Bestellung an iDempiere senden mit User-Daten
+      const completedOrder = await createAndCompleteOrder(orderData, {
+        businessPartnerId,
+        bpLocationId,
+        contactId
+      });
 
       // Audit Log
       logOrderCreation(
