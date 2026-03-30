@@ -11,13 +11,15 @@ Dieses Dokument beschreibt die Architektur des E-Commerce-Webshops „Duale Sü�
 3. [Technologie-Stack](#technologie-stack)
 4. [Frontend-Architektur](#frontend-architektur)
 5. [Backend-Architektur](#backend-architektur)
-6. [API-Referenz](#api-referenz)
-7. [iDempiere Integration](#idempiere-integration)
+6. [API-Referenz: Frontend ↔ Backend](#api-referenz-frontend--backend)
+7. [API-Referenz: Backend ↔ iDempiere](#api-referenz-backend--idempiere)
 8. [Datenflüsse](#datenflüsse)
 9. [Authentication & Security](#authentication--security)
 10. [Fehlerbehandlung](#fehlerbehandlung)
 11. [Audit Logging](#audit-logging)
 12. [Konfiguration](#konfiguration)
+13. [Deployment Notes](#deployment-notes)
+14. [Security Checklist](#security-checklist)
 
 ---
 
@@ -36,7 +38,7 @@ Die Architektur folgt einem **3-Schichten-Modell**:
                      │ (JSON Payloads)
                      ▼
 ┌─────────────────────────────────────────┐
-│     Backend (Node.js/Express)           │  Port 3000
+│     Backend (Node.js/Express)           │  Port 3001 (Default)
 │    - REST API Endpoints                 │
 │    - JWT Authentication                 │
 │    - Rate Limiting & Security           │  .env konfiguriert
@@ -89,15 +91,15 @@ src/
     │   └── ui/               #   shadcn/ui Primitives (40+ Komponenten)
     │
     ├── contexts/             # React Context für globalen State
-    │   ├── AuthContext.tsx    #   Benutzer, Login, Adressen, isLoading
+    │   ├── AuthContext.tsx    #   Benutzer, Login, Registrierung, isLoading
     │   └── CartContext.tsx    #   Warenkorb (add, remove, update, clear)
     │
-    ├── data/
-    │   └── products.ts       # Produktdaten (statisch, 3 Produkte)
+    ├── services/
+    │   └── api.ts            # API-Client (fetchCatalog, createOrder)
     │
     ├── pages/                # 21 Seiten-Komponenten
     │   ├── Home.tsx          #   Startseite
-    │   ├── Shop.tsx          #   Produktübersicht
+    │   ├── Shop.tsx          #   Produktübersicht (Produkte aus API)
     │   ├── ProductDetail.tsx #   Produktdetailseite
     │   ├── Cart.tsx          #   Warenkorb
     │   ├── Checkout.tsx      #   Bestellvorgang
@@ -122,11 +124,11 @@ server/
 ├── config.js                 # Umgebungsvariablen & Konfiguration
 ├── idempiere/
 │   ├── client.js             # HTTP-Client für iDempiere REST API
-│   ├── auth.js               # Service Account Authentication mit iDempiere
+│   ├── auth.js               # Service Account Authentication (2-Schritt)
 │   └── models/               # iDempiere REST API Models (als Referenz)
 │
 ├── routes/                   # API Endpoints (Express Router)
-│   ├── auth.js               # POST /api/auth/login, register, logout, GET /api/auth/me
+│   ├── auth.js               # POST /api/auth/login, /register, /logout, GET /api/auth/me
 │   ├── orders.js             # POST /api/orders/create-and-complete
 │   ├── catalog.js            # GET /api/catalog
 │   └── health.js             # GET /health
@@ -136,13 +138,13 @@ server/
 │   ├── registrationService.js # 6-Schritt Registrierungsprozess
 │   ├── orderService.js       # Order Creation & Completion
 │   ├── auditService.js       # Audit Logging
-│   └── catalogService.js     # Produktkatalog
+│   └── catalogService.js     # Produktkatalog (aus iDempiere)
 │
 ├── middleware/
 │   └── security.js           # Rate Limiting, Authorization, Error Handlers
 │
 └── logs/                     # Audit-Logs (JSON-Dateien)
-    └── audit.log             # Tägliche Audit-Einträge
+    └── audit.log             # NDJSON Audit-Einträge
 ```
 
 ---
@@ -159,12 +161,12 @@ server/
 | React Router | 7.13 | Client-Side Routing (SPA-Navigation) |
 | shadcn/ui + Radix UI | – | Barrierefreie, anpassbare UI-Primitives |
 | **Backend** | | |
-| Node.js | 18+ | JavaScript Runtime |
+| Node.js | 18+ | JavaScript Runtime (ESM) |
 | Express | 4.x | Web Framework & HTTP Server |
-| JWT | – | JSON Web Token Authentication |
-| Cookie-Parser | – | HTTP Cookie Parsing |
-| CORS | – | Cross-Origin Resource Sharing |
-| Express Rate-Limit | – | API Rate Limiting |
+| jsonwebtoken | – | JSON Web Token Authentication |
+| cookie-parser | – | HTTP Cookie Parsing |
+| cors | – | Cross-Origin Resource Sharing |
+| express-rate-limit | – | API Rate Limiting |
 | **Integration** | | |
 | iDempiere REST API | – | ERP System Communication |
 
@@ -191,7 +193,7 @@ main.tsx
 | Pfad | Seite | Beschreibung | Auth Required |
 |---|---|---|---|
 | `/` | Home | Startseite mit Hero, Features, Produktvorschau | Nein |
-| `/shop` | Shop | Produktübersicht mit allen Artikeln | Nein |
+| `/shop` | Shop | Produktübersicht (Produkte aus iDempiere API) | Nein |
 | `/products/:id` | ProductDetail | Detailseite eines einzelnen Produkts | Nein |
 | `/cart` | Cart | Warenkorb-Ansicht | Nein |
 | `/checkout` | Checkout | Bestellvorgang (Adresse, Zahlung) | Ja |
@@ -202,6 +204,17 @@ main.tsx
 | `/orders` | Orders | Bestellhistorie | Ja |
 | `/orders/:orderNumber` | OrderDetail | Einzelne Bestellung | Ja |
 | `/account/addresses` | AddressManagement | Adressverwaltung | Ja |
+| `/kontakt` | Kontakt | Kontaktseite | Nein |
+| `/versand-lieferung` | VersandLieferung | Versand und Lieferung | Nein |
+| `/rueckgabe-umtausch` | RueckgabeUmtausch | Rückgabe und Umtausch | Nein |
+| `/faq` | FAQ | Häufig gestellte Fragen | Nein |
+| `/agb` | AGB | Allgemeine Geschäftsbedingungen | Nein |
+| `/datenschutz` | Datenschutz | Datenschutzerklärung | Nein |
+| `/impressum` | Impressum | Impressum | Nein |
+| `/widerrufsrecht` | Widerrufsrecht | Widerrufsbelehrung | Nein |
+| `*` | NotFound | 404-Fehlerseite | Nein |
+
+Route-Guards sind nicht auf Router-Ebene implementiert. Geschützte Seiten prüfen `isAuthenticated` und `isLoading` in der Komponente selbst und leiten ggf. zu `/login` weiter.
 
 ### State Management
 
@@ -209,7 +222,7 @@ main.tsx
 
 Verwaltet globalen Authentifizierungs-State.
 
-**Interface:**
+**Interfaces:**
 
 ```typescript
 interface Address {
@@ -229,25 +242,45 @@ interface User {
   company?: string;
   billingAddress: Address;
   deliveryAddress: Address;
-  businessPartnerId: number;
-  bpLocationId: number;
-  contactId: number;
+}
+
+interface RegisterData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  customerType: 'private' | 'company';
+  company?: string;
+  billingAddress: Address;
+  deliveryAddress: Address;
 }
 ```
+
+**Hinweis:** Die Backend-spezifischen Felder `businessPartnerId`, `bpLocationId` und `contactId` sind nur im JWT-Payload auf dem Backend vorhanden, nicht im Frontend `User` Interface.
 
 **Bereitgestellte Funktionen:**
 
 | Funktion | Beschreibung |
 |---|---|
 | `user` | Aktueller Benutzer oder `null` |
-| `isAuthenticated` | Boolean – ist der Benutzer eingeloggt? |
-| `isLoading` | Boolean – wird gerade die Session validiert? |
-| `login(email, password)` | Authentifiziert den Benutzer über Backend-API |
-| `register(data)` | Registriert einen neuen Benutzer über Backend-API |
-| `updateAddresses(billing, delivery)` | Aktualisiert Adressen |
-| `logout()` | Meldet den Benutzer ab |
+| `isAuthenticated` | Boolean – `!!user` |
+| `isLoading` | Boolean – wird gerade die Session via `/api/auth/me` validiert? |
+| `isSimplifiedMode` | Boolean – Demo-Modus ohne Backend aktiv? |
+| `toggleSimplifiedMode()` | Wechselt zwischen Demo- und ERP-Modus |
+| `login(email, password)` | Authentifiziert den Benutzer über `POST /api/auth/login` |
+| `register(data)` | Registriert über `POST /api/auth/register` |
+| `updateAddresses(billing, delivery)` | Aktualisiert Adressen (nur lokal, kein Backend-Call) |
+| `logout()` | Meldet ab via `POST /api/auth/logout` |
 
-**Persistenz:** JWT wird in httpOnly Cookie gespeichert. Benutzer wird beim Page-Load via `GET /api/auth/me` wiederhergestellt.
+**Persistenz:** JWT wird in httpOnly Cookie gespeichert. Benutzer wird beim Page-Load via `GET /api/auth/me` wiederhergestellt. Wenn `isLoading` noch `true` ist, zeigen geschützte Seiten einen Ladeindikator statt zur Login-Seite weiterzuleiten.
+
+**Simplified Mode (Demo-Modus):**
+
+Ein Offline-Demo-Modus für Vorführungen ohne Backend-Anbindung. Wird über `localStorage` Key `simplified-mode` persistiert. Im Demo-Modus:
+- `login()` gibt sofort `true` zurück (kein API-Call)
+- `register()` gibt sofort `{ success: true }` zurück
+- Der User wird auf einen `DEMO_USER` gesetzt (id: `demo-user`, email: `demo@duale-suessigkeiten.de`)
+- Bestellungen werden unter `duale-demo-orders` in localStorage gespeichert
 
 #### CartContext
 
@@ -273,6 +306,42 @@ interface CartItem {
 | `updateQuantity(productId, quantity)` | Ändert die Menge (entfernt bei ≤ 0) |
 | `clearCart()` | Leert den gesamten Warenkorb |
 
+**Persistenz:** Der Warenkorb wird in `localStorage` unter dem Key `duale-cart` gespeichert. Kein Backend-Call -- rein clientseitig.
+
+### API-Client (`services/api.ts`)
+
+Zentraler API-Client für Frontend-Backend-Kommunikation:
+
+```typescript
+interface ApiProduct {
+  id: string;
+  name: string;
+  description: string;
+  searchKey: string;
+  price: number;
+  stock: number;
+  image: string;       // Base64 Data-URL oder leer
+}
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  stock?: number;
+  searchKey?: string;
+}
+```
+
+**Funktionen:**
+
+| Funktion | API-Call | Beschreibung |
+|---|---|---|
+| `fetchCatalog()` | `GET /api/catalog` | Lädt Produktkatalog aus iDempiere |
+| `createOrder(orderData)` | `POST /api/orders/create-and-complete` | Erstellt Bestellung |
+| `mapApiProductToProduct(p)` | – | Mapped API-Response auf Frontend-Product |
+
 ---
 
 ## Backend-Architektur
@@ -283,13 +352,13 @@ interface CartItem {
 
 ```javascript
 app.use(cors({ origin: [...], credentials: true }));    // CORS für Frontend
-app.use(express.json({ limit: '2mb' }));                 // JSON Parser
-app.use(cookieParser());                                 // Cookie Parser
-app.use('/api', apiRateLimiter);                         // Rate Limiting
-app.use(healthRoutes);                                   // Health Check
-app.use('/api', authRoutes);                             // Auth Endpoints
-app.use('/api', catalogRoutes);                          // Catalog Endpoints
-app.use('/api', orderRoutes);                            // Order Endpoints
+app.use(express.json({ limit: '2mb' }));                // JSON Parser
+app.use(cookieParser());                                // Cookie Parser
+app.use('/api', apiRateLimiter);                        // Rate Limiting (alle /api Routen)
+app.use(healthRoutes);                                  // GET /health (kein /api Prefix)
+app.use('/api', authRoutes);                            // Auth Endpoints
+app.use('/api', catalogRoutes);                         // Catalog Endpoints
+app.use('/api', orderRoutes);                           // Order Endpoints
 ```
 
 ### Request Flow
@@ -299,36 +368,33 @@ Frontend HTTP Request
     ↓
 Express Middleware (CORS, JSON Parser, Cookies)
     ↓
-Rate Limiter Middleware
-    ↓
-Authorization Middleware (für geschützte Routes)
+Rate Limiter Middleware (auf /api Routen)
     ↓
 Route Handler (req, res)
     ↓
-Service Layer (Business Logic)
-    ├─→ iDempiere Client
-    │   └─→ iDempiere REST API
-    └─→ Audit Service
+[Optional: requireAuth → authorize() Middleware]
     ↓
-Response (JSON + Cookie für Auth)
+Service Layer (Business Logic)
+    ├─→ iDempiere Client → iDempiere REST API
+    └─→ Audit Service → audit.log
+    ↓
+Response (JSON + ggf. Set-Cookie)
 ```
 
 ---
 
-## API-Referenz
+## API-Referenz: Frontend ↔ Backend
 
-### Frontend ↔ Backend Communication
+### Authentication Endpoints
 
-#### Authentication Endpoints
-
-##### `POST /api/auth/login`
+#### `POST /api/auth/login`
 
 **Request:**
 
 ```json
 {
   "email": "user@example.com",
-  "password": "securepassword123"
+  "password": "password123"
 }
 ```
 
@@ -362,31 +428,33 @@ Response (JSON + Cookie für Auth)
 }
 ```
 
-**Cookie Set:**
+**Hinweis:** `billingAddress` und `deliveryAddress` sind derzeit immer identisch, da nur eine C_Location pro BPartner geladen wird.
+
+**Cookie gesetzt:**
 
 ```
 Set-Cookie: auth_token=<JWT>; HttpOnly; Secure=false; SameSite=Lax; Max-Age=604800000
 ```
 
-**Error Responses:**
+**Fehler:**
 
 | Code | Fehler | Beispiel |
 |------|--------|---------|
-| 400 | Missing Credentials | `"Email und Passwort sind erforderlich"` |
-| 401 | Invalid Credentials | `"Ungültige Email oder Passwort"` |
-| 429 | Rate Limited | (nach 5 Versuchen in 15 Min) |
+| 400 | Fehlende Felder | `"Email und Passwort sind erforderlich"` |
+| 401 | Falsche Credentials | `"Ungültige Email oder Passwort"` |
+| 429 | Rate Limited | nach 5 Versuchen in 15 Min (nur fehlgeschlagene zählen) |
 | 500 | Server Error | `"Serverfehler bei der Anmeldung"` |
 
 ---
 
-##### `POST /api/auth/register`
+#### `POST /api/auth/register`
 
 **Request:**
 
 ```json
 {
   "email": "new@example.com",
-  "password": "securepassword123",
+  "password": "password123",
   "firstName": "Anna",
   "lastName": "Schmidt",
   "customerType": "private",
@@ -420,37 +488,37 @@ Set-Cookie: auth_token=<JWT>; HttpOnly; Secure=false; SameSite=Lax; Max-Age=6048
     "lastName": "Schmidt",
     "customerType": "private",
     "company": null,
-    "billingAddress": { ... },
-    "deliveryAddress": { ... }
+    "billingAddress": { "..." },
+    "deliveryAddress": { "..." }
   }
 }
 ```
 
-**Registration Process (6 Steps in Backend):**
+**Registrierungsprozess (6 Schritte im Backend):**
 
-1. **Duplicate Check** – Prüfe ob Email bereits existiert (AD_User.EMail oder C_BPartner.Value)
-2. **Create Location** – Erstelle C_Location mit Adresse
+1. **Duplicate Check** – Prüfe ob Email bereits existiert (AD_User.EMail und C_BPartner.Value)
+2. **Create Location** – Erstelle C_Location mit Adressdaten (oder verwende existierende)
 3. **Create BusinessPartner** – Erstelle C_BPartner mit Value=Email
-4. **Create BPartner Location** – Erstelle C_BPartner_Location mit Name=City
-5. **Create User** – Erstelle AD_User mit Email als Login
-6. **Assign Role** – Weise Standard-Role zu (Role ID 1000000)
+4. **Create BPartner Location** – Erstelle C_BPartner_Location mit Name=Stadtname
+5. **Create User** – Erstelle AD_User mit Name=Email für Login
+6. **Assign Role** – Weise Standard-Role zu (Rollenzuweisung ist nicht-fatal -- schlägt sie fehl, wird trotzdem registriert)
 
-**Error Responses:**
+**Fehler:**
 
 | Code | Fehler | Beispiel |
 |------|--------|---------|
-| 400 | Missing Fields | `"Vor- und Nachname sind erforderlich"` |
-| 409 | Email Exists | `"Diese Email ist bereits registriert"` |
-| 429 | Rate Limited | (nach 5 Versuche in 15 Min) |
+| 400 | Fehlende Felder | `"Vor- und Nachname sind erforderlich"` |
+| 409 | Email existiert | `"Diese Email ist bereits registriert"` |
+| 429 | Rate Limited | nach 5 Versuchen in 15 Min |
 | 500 | Server Error | `"Serverfehler bei der Registrierung"` |
 
 ---
 
-##### `POST /api/auth/logout`
+#### `POST /api/auth/logout`
 
-**Request:** keine Parameter
+**Request:** kein Body
 
-**Response:**
+**Response (200 OK):**
 
 ```json
 {
@@ -459,7 +527,7 @@ Set-Cookie: auth_token=<JWT>; HttpOnly; Secure=false; SameSite=Lax; Max-Age=6048
 }
 ```
 
-**Cookie Clear:**
+**Cookie gelöscht:**
 
 ```
 Set-Cookie: auth_token=; Max-Age=0
@@ -467,11 +535,11 @@ Set-Cookie: auth_token=; Max-Age=0
 
 ---
 
-##### `GET /api/auth/me`
+#### `GET /api/auth/me`
 
-**Purpose:** Session-Validierung nach Page-Reload. Wird vom Frontend beim App-Load aufgerufen.
+**Zweck:** Session-Validierung nach Page-Reload. Wird vom Frontend beim App-Load automatisch aufgerufen.
 
-**Request:** keine Parameter (JWT aus Cookie)
+**Request:** kein Body (JWT aus Cookie wird gelesen)
 
 **Response (200 OK):**
 
@@ -484,105 +552,77 @@ Set-Cookie: auth_token=; Max-Age=0
     "lastName": "Mustermann",
     "customerType": "private",
     "company": null,
-    "billingAddress": { ... },
-    "deliveryAddress": { ... }
+    "billingAddress": { "..." },
+    "deliveryAddress": { "..." }
   }
 }
 ```
 
-**Error Responses:**
+**Fehler:**
 
 | Code | Fehler |
 |------|--------|
-| 401 | Nicht authentifiziert (kein Cookie) |
-| 401 | Session abgelaufen (Token ungültig) |
+| 401 | Nicht authentifiziert (kein Cookie oder Token ungültig) |
 
 ---
 
-#### Order Endpoints
+### Order Endpoints
 
-##### `POST /api/orders/create-and-complete`
+#### `POST /api/orders/create-and-complete`
 
-**Prerequisites:**
-- Authentication: JWT Cookie erforderlich
-- Authorization: Benutzer muss Rolle haben (ORDER privilege)
-- Rate Limit: Max 10 Bestellungen pro 15 Min
+**Middleware-Kette:**
+1. `requireAuth` – JWT aus Cookie prüfen
+2. `authorize()` – Prüft ob `req.user` existiert
+3. `orderRateLimiter` – Max 10 Bestellungen pro Stunde (pro User)
 
-**Request:**
+**Request (vom Frontend gesendet):**
 
 ```json
 {
   "lines": [
     {
       "M_Product_ID": 1000001,
-      "QtyOrdered": 2,
-      "C_UOM_ID": 100
+      "QtyOrdered": 2
     },
     {
       "M_Product_ID": 1000002,
-      "QtyOrdered": 1,
-      "C_UOM_ID": 100
+      "QtyOrdered": 1
     }
   ],
-  "POReference": "PO-123",
-  "DateOrdered": "2026-03-30",
-  "DatePromised": "2026-03-31"
+  "POReference": "WebShop-1711953000123"
 }
 ```
+
+**Hinweis:** Das Frontend sendet nur `M_Product_ID` und `QtyOrdered` pro Zeile. `C_UOM_ID` wird vom Backend mit Default 100 (Each) gesetzt. Datum-Felder werden automatisch auf heute gesetzt.
 
 **Response (200 OK):**
 
 ```json
 {
-  "id": "1000015",
+  "id": 1000015,
   "DocumentNo": "SO-0001",
-  "DateOrdered": "2026-03-30",
-  "DatePromised": "2026-03-31",
-  "C_BPartner_ID": { "id": 1000023 },
-  "GrandTotal": 50.00,
+  "C_Order_ID": 1000015,
   "DocStatus": "CO",
-  "lines": [
-    {
-      "id": "1000047",
-      "Line": 10,
-      "M_Product_ID": { "id": 1000001 },
-      "QtyOrdered": 2,
-      "LineNetAmt": 30.00
-    },
-    {
-      "id": "1000048",
-      "Line": 20,
-      "M_Product_ID": { "id": 1000002 },
-      "QtyOrdered": 1,
-      "LineNetAmt": 20.00
-    }
-  ]
+  "GrandTotal": 50.00
 }
 ```
 
-**Order Creation Process (3 Steps):**
-
-1. **POST /models/c_order** – Auftragskopf mit Header-Daten erstellen
-2. **POST /models/c_orderline** – Für jede Zeile eine Orderline erstellen
-3. **PUT /models/c_order/{id}** – Order mit `doc-action=CO` (Complete) abschließen
-
-**Error Responses:**
+**Fehler:**
 
 | Code | Fehler | Beispiel |
 |------|--------|---------|
-| 400 | Invalid Payload | `"Order payload requires non-empty lines array"` |
-| 401 | Not Authenticated | (kein Cookie vorhanden) |
-| 403 | Not Authorized | (User hat keine ORDER Role) |
-| 429 | Rate Limited | (10 Orders in 15 Min) |
+| 400 | Ungültige Payload | `"Order payload requires non-empty lines array"` |
+| 401 | Nicht authentifiziert | kein Cookie |
+| 429 | Rate Limited | 10 Orders pro Stunde |
 | 500 | iDempiere Error | `"Order create failed: ..."` |
 
 ---
 
-#### Catalog Endpoints
+### Catalog Endpoints
 
-##### `GET /api/catalog`
+#### `GET /api/catalog`
 
-**Request:** keine Parameter
+**Request:** kein Body, keine Auth erforderlich (öffentlich)
 
 **Response (200 OK):**
 
@@ -592,139 +632,132 @@ Set-Cookie: auth_token=; Max-Age=0
     "id": "1000001",
     "name": "Knoppers",
     "description": "Knackig, knusprig, köstlich",
+    "searchKey": "knoppers-01",
     "price": 2.99,
-    "image": "/assets/knoppers.jpg",
-    "details": ["Schokolade", "Nougat", "Wafer"]
+    "stock": 150,
+    "image": "data:image/jpeg;base64,/9j/4AAQ..."
   },
   {
     "id": "1000002",
     "name": "Nougat Happen",
     "description": "Süße Nougat-Praline",
+    "searchKey": "nougat-01",
     "price": 4.49,
-    "image": "/assets/nougat.jpg",
-    "details": ["Nougat", "Praline", "Premium"]
+    "stock": 75,
+    "image": "data:image/jpeg;base64,..."
   }
 ]
 ```
 
+**Datenquelle:** Produkte werden live aus iDempiere geladen (4 Queries: m_product, m_productprice, m_storageonhand, Attachments). Bilder werden als Base64 Data-URLs geliefert. Es gibt keine statische `products.ts` Datei.
+
 ---
 
-#### Health Check Endpoint
+### Health Check
 
-##### `GET /health`
+#### `GET /health`
+
+**Hinweis:** Kein `/api` Prefix, daher nicht rate-limited.
 
 **Response (200 OK):**
 
 ```json
 {
-  "status": "ok",
-  "timestamp": "2026-03-30T10:30:00Z"
+  "ok": true
 }
 ```
 
 ---
 
-### Backend ↔ iDempiere Communication
+## API-Referenz: Backend ↔ iDempiere
 
-#### Authentication
+### Service Account Authentication (2-Schritt)
 
-**Service Account Pattern:**
+Das Backend verwendet einen **Service Account (GardenAdmin)** für alle iDempiere-Zugriffe. Die Authentifizierung ist ein 2-Schritt-Prozess:
 
-- **Account:** GardenAdmin (Benutzername)
-- **Token:** Wird von `idempiere/auth.js` automatisch verwaltet
-- **Refresh:** Token wird gecacht und bei 401 neu angefordert
-
-**Flow:**
+**Implementierung:** `server/idempiere/auth.js`
 
 ```
-Backend needs data
+Backend benötigt Daten
     ↓
-authenticate() → Check if Token cached
-    ├─→ Token exists & valid? → Use it
-    └─→ No/Expired? → POST /auth/tokens with GardenAdmin credentials
-                      → Store token in cache
+authenticate() → Gecachter Token vorhanden & noch gültig? (< 20 Min)
+    ├─→ JA → Token verwenden
+    └─→ NEIN →
+        Schritt 1: POST /auth/tokens
+            Body: { userName: "GardenAdmin", password: "..." }
+            Response: { token: "<temp-token>" }
+
+        Schritt 2: PUT /auth/tokens
+            Header: Authorization: Bearer <temp-token>
+            Body: { clientId, roleId, organizationId, warehouseId, language }
+            Response: { token: "<context-token>" }
+
+        → context-token cachen (TTL: 20 Minuten)
     ↓
 idempiereFetch(path, options)
-    ├─→ Add Authorization: Bearer {token}
-    ├─→ Send HTTP Request to iDempiere REST API
-    ├─→ Receive response
-    └─→ If 401 → invalidate token cache → retry with new token
+    ├─→ Setzt: Authorization: Bearer <context-token>
+    ├─→ Setzt: Content-Type: application/json
+    ├─→ Führt HTTP Request gegen iDempiere aus
+    └─→ Bei 401 → Token invalidieren (nächster Request holt neuen)
 ```
 
----
+**Base URL:** Konfiguriert über `IDEMPIERE_BASE_URL` (z.B. `http://localhost:8080/api/v1`)
 
-#### iDempiere REST API Models
-
-**Base URL:** `https://idempiere.domain.com/webservices/rest/v1`
-
-**Headers (für alle Requests):**
+**Headers für alle iDempiere Requests:**
 
 ```
 Content-Type: application/json
-Authorization: Bearer <token>
+Authorization: Bearer <context-token>
 ```
 
 ---
 
-##### User Authentication (für Login-Validierung)
+### User Authentication (für Login-Validierung)
 
 **POST `/auth/tokens`**
+
+Für die Login-Validierung eines Endnutzers. Das Backend sendet die User-Credentials direkt an iDempiere:
 
 ```json
 {
   "userName": "user@example.com",
-  "password": "password123"
+  "password": "userpassword"
 }
 ```
 
-Response:
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
+- Response-Status 200 = Credentials gültig
+- Response-Status 401 = Credentials ungültig
 
-**Purpose:** Validiere User-Credentials ohne volle Context Selection. Response-Status 200 = Credentials OK, 401 = Ungültig.
+Dieses Token wird **nicht weiter verwendet** -- es dient nur zur Validierung. Danach werden die User-Daten mit dem GardenAdmin-Token geladen.
 
 ---
 
-##### BusinessPartner Management
+### BusinessPartner Management
 
-**GET `/models/c_bpartner/{id}`**
+**GET `/models/c_bpartner?$filter=Value eq '{email}'`**
 
-Get BusinessPartner by ID:
-
-```json
-{
-  "id": 1000023,
-  "Value": "user@example.com",
-  "Name": "Max Mustermann",
-  "IsCustomer": true,
-  "IsVendor": false,
-  "IsCompany": false
-}
-```
-
-**GET `/models/c_bpartner?$filter=Value eq 'email@example.com'`**
-
-Search BusinessPartner by Value (Email):
+Suche BusinessPartner nach Value (= Email bei Webshop-Kunden):
 
 ```json
 {
   "records": [
-    { "id": 1000023, "Value": "email@example.com", ... }
+    {
+      "id": 1000023,
+      "Value": "user@example.com",
+      "Name": "Max Mustermann"
+    }
   ]
 }
 ```
 
 **POST `/models/c_bpartner`**
 
-Create BusinessPartner:
+Erstellt neuen BusinessPartner bei Registrierung:
 
 ```json
 {
-  "AD_Org_ID": { "id": 1000000 },
-  "Value": "new.user@example.com",
+  "AD_Org_ID": { "id": 11 },
+  "Value": "new@example.com",
   "Name": "Anna Schmidt",
   "IsCustomer": true,
   "IsVendor": false,
@@ -733,37 +766,15 @@ Create BusinessPartner:
 }
 ```
 
-Response:
-```json
-{
-  "id": 1000024,
-  "Value": "new.user@example.com",
-  "Name": "Anna Schmidt"
-}
-```
+Bei Firmenkunden wird zusätzlich `Name2` mit dem vollen Namen gesetzt und `Name` enthält den Firmennamen.
 
 ---
 
-##### Location Management
-
-**GET `/models/c_location/{id}`**
-
-Get address location:
-
-```json
-{
-  "id": 1000100,
-  "Address1": "Musterstraße",
-  "Address2": "42",
-  "Postal": "70173",
-  "City": "Stuttgart",
-  "C_Country_ID": { "id": 99, "identifier": "DE" }
-}
-```
+### Location Management
 
 **POST `/models/c_location`**
 
-Create location:
+Erstellt eine Adresse:
 
 ```json
 {
@@ -771,45 +782,21 @@ Create location:
   "Address2": "15",
   "Postal": "10115",
   "City": "Berlin",
-  "C_Country_ID": { "id": 99 }
+  "C_Country_ID": { "id": 101 }
 }
 ```
 
-Response:
-```json
-{
-  "id": 1000101,
-  "City": "Berlin",
-  "Postal": "10115"
-}
-```
+`C_Country_ID: 101` = Deutschland. `Address1` = Straße, `Address2` = Hausnummer.
 
 ---
 
-##### BusinessPartner Location (nicht C_Location!)
+### BusinessPartner Location
 
-**GET `/models/c_bpartner_location?$filter=C_BPartner_ID eq {id}`**
-
-Get all BPartner Locations:
-
-```json
-{
-  "records": [
-    {
-      "id": 1000050,
-      "C_BPartner_ID": { "id": 1000023 },
-      "C_Location_ID": { "id": 1000100 },
-      "Name": "Berlin",
-      "IsBillTo": true,
-      "IsShipTo": true
-    }
-  ]
-}
-```
+**WICHTIG:** `C_BPartner_Location_ID` (die `id` aus dieser Tabelle) wird in Orders verwendet, **nicht** `C_Location_ID`!
 
 **POST `/models/c_bpartner_location`**
 
-Create BPartner Location (Verknüpfung):
+Verknüpft einen BPartner mit einer Location:
 
 ```json
 {
@@ -823,24 +810,15 @@ Create BPartner Location (Verknüpfung):
 }
 ```
 
-Response:
-```json
-{
-  "id": 1000050,
-  "Name": "Berlin",
-  "C_BPartner_ID": { "id": 1000023 }
-}
-```
-
-**WICHTIG:** `C_BPartner_Location_ID` (die `id` hier) wird in Orders als `C_BPartner_Location_ID` verwendet, nicht `C_Location_ID`!
+`Name` wird auf den Stadtnamen gesetzt (nicht "Standard").
 
 ---
 
-##### User Management
+### AD_User Management
 
-**GET `/models/ad_user?$filter=EMail eq 'email@example.com'`**
+**GET `/models/ad_user?$filter=EMail eq '{email}'`**
 
-Search AD_User by email:
+Suche User per Email:
 
 ```json
 {
@@ -858,14 +836,14 @@ Search AD_User by email:
 
 **POST `/models/ad_user`**
 
-Create AD_User:
+Erstellt Login-User:
 
 ```json
 {
-  "AD_Org_ID": { "id": 1000000 },
+  "AD_Org_ID": { "id": 11 },
   "Name": "new@example.com",
   "EMail": "new@example.com",
-  "Password": "hashedpassword123",
+  "Password": "userpassword",
   "C_BPartner_ID": { "id": 1000024 },
   "C_BPartner_Location_ID": { "id": 1000050 },
   "IsActive": true,
@@ -873,55 +851,38 @@ Create AD_User:
 }
 ```
 
-Response:
-```json
-{
-  "id": 1000022,
-  "Name": "new@example.com",
-  "EMail": "new@example.com"
-}
-```
+**Wichtig:** `Name = Email` -- dies ist der Login-Name in iDempiere. `Description` speichert den realen Namen.
 
 ---
 
-##### User Role Assignment
+### User Role Assignment
 
 **POST `/models/ad_user_roles`**
 
-Assign Role to User:
-
 ```json
 {
   "AD_User_ID": { "id": 1000022 },
-  "AD_Role_ID": { "id": 1000000 }
-}
-```
-
-Response:
-```json
-{
-  "id": 1000030,
-  "AD_User_ID": { "id": 1000022 },
-  "AD_Role_ID": { "id": 1000000 }
+  "AD_Role_ID": { "id": 1000000 },
+  "AD_Org_ID": { "id": 11 }
 }
 ```
 
 ---
 
-##### Order Management
+### Order Management
 
 **POST `/models/c_order`**
 
-Create Sales Order:
+Erstellt den Auftragskopf:
 
 ```json
 {
   "IsSOTrx": true,
   "IsSelfService": true,
-  "AD_Org_ID": { "id": 1000000 },
-  "C_DocTypeTarget_ID": { "id": 1000082 },
+  "AD_Org_ID": { "id": 11 },
+  "C_DocTypeTarget_ID": { "id": 133 },
   "DateOrdered": "2026-03-30",
-  "DatePromised": "2026-03-31",
+  "DatePromised": "2026-03-30",
   "DateAcct": "2026-03-30",
   "C_BPartner_ID": { "id": 1000023 },
   "C_BPartner_Location_ID": { "id": 1000050 },
@@ -929,32 +890,27 @@ Create Sales Order:
   "Bill_BPartner_ID": { "id": 1000023 },
   "Bill_Location_ID": { "id": 1000050 },
   "Bill_User_ID": { "id": 1000021 },
-  "SalesRep_ID": { "id": 1000016 },
-  "C_PaymentTerm_ID": { "id": 1000000 },
-  "M_Warehouse_ID": { "id": 1000226 },
-  "M_PriceList_ID": { "id": 1000003 },
-  "M_Shipper_ID": { "id": 1000000 },
+  "SalesRep_ID": { "id": 101 },
+  "C_PaymentTerm_ID": { "id": 105 },
+  "M_Warehouse_ID": { "id": 1000000 },
+  "M_PriceList_ID": { "id": 101 },
+  "M_Shipper_ID": { "id": 100 },
   "PaymentRule": { "id": "P" },
-  "DeliveryViaRule": { "id": "D" },
-  "POReference": "PO-123"
+  "DeliveryViaRule": { "id": "S" },
+  "POReference": "WebShop-1711953000123"
 }
 ```
 
-Response:
-```json
-{
-  "id": 1000015,
-  "DocumentNo": "SO-0001",
-  "C_Order_ID": 1000015,
-  "DocStatus": "DR"
-}
-```
+**Feldzuordnung:**
+- `C_BPartner_ID`, `C_BPartner_Location_ID`, `AD_User_ID` = aus JWT (eingeloggter User)
+- `Bill_*` = identisch mit den Hauptfeldern
+- Alle anderen Felder = aus `ORDER_CONFIG` / `AUTH_CONFIG` in `server/config.js`
 
 ---
 
 **POST `/models/c_orderline`**
 
-Create Order Line:
+Erstellt eine Auftragszeile:
 
 ```json
 {
@@ -964,42 +920,25 @@ Create Order Line:
   "QtyOrdered": 2,
   "QtyEntered": 2,
   "C_UOM_ID": { "id": 100 },
-  "M_Warehouse_ID": { "id": 1000226 }
+  "M_Warehouse_ID": { "id": 1000000 }
 }
 ```
 
-Response:
-```json
-{
-  "id": 1000047,
-  "Line": 10,
-  "M_Product_ID": { "id": 1000001 },
-  "QtyOrdered": 2
-}
-```
+`Line` wird automatisch berechnet: `(index + 1) * 10` (also 10, 20, 30, ...).
 
 ---
 
 **PUT `/models/c_order/{id}`**
 
-Complete Order (doc-action=CO):
+Order abschließen (Complete):
 
 ```json
 {
-  "id": 1000015,
   "doc-action": "CO"
 }
 ```
 
-Response:
-```json
-{
-  "id": 1000015,
-  "DocumentNo": "SO-0001",
-  "DocStatus": "CO",
-  "GrandTotal": 50.00
-}
-```
+Ändert `DocStatus` von `DR` (Draft) auf `CO` (Completed).
 
 ---
 
@@ -1011,60 +950,57 @@ Response:
 ┌─────────────┐
 │   Frontend  │
 └──────┬──────┘
-       │ 1. User klickt "Anmelden"
-       │ 2. Enter email + password
+       │ 1. User gibt Email + Passwort ein
+       │ 2. POST /api/auth/login { email, password }
        ▼
-┌─────────────────────┐
-│  POST /api/auth/login
-│  { email, password }│
-└────────────┬────────┘
-             │
-             ▼
-    ┌─────────────────────────────────┐
-    │ Backend: authService.js         │
-    │ authenticateUser(email, pass)   │
-    └────────────┬────────────────────┘
-                 │
-        ┌────────┴────────┐
-        │                 │
-        ▼                 ▼
-   ┌──────────────┐  ┌──────────────────────┐
-   │ iDempiere:   │  │ iDempiere:           │
-   │ POST         │  │ GET /models/ad_user  │
-   │ /auth/tokens │  │ filter by email      │
-   │ (validate)   │  │                      │
-   └──────────────┘  └──────────────────────┘
-        │                 │
-        │ Credentials OK  │
-        └────────┬────────┘
+┌─────────────────────────────┐
+│ Backend: authService.js     │
+│ authenticateUser(email, pw) │
+└────────┬────────────────────┘
+         │
+    ┌────┴──────────────────────────┐
+    │                               │
+    ▼                               ▼
+┌──────────────────┐  ┌──────────────────────────┐
+│ iDempiere:       │  │ iDempiere:               │
+│ POST /auth/tokens│  │ GET /models/ad_user      │
+│ (User-Creds      │  │ ?$filter=EMail eq '...'  │
+│  validieren)     │  │ (User-Daten laden)       │
+└──────────────────┘  └──────────────────────────┘
+         │                   │
+         │ 200 = OK          │ User + BPartner
+         └───────┬───────────┘
                  │
                  ▼
-    ┌────────────────────────────────┐
-    │ iDempiere: Load BPartner,      │
-    │            Location, Contact   │
-    └────────┬───────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────┐
-│ Backend: Create JWT Token            │
-│ {userId, email, businessPartnerId,   │
-│  bpLocationId, contactId}            │
-└──────────┬───────────────────────────┘
+┌──────────────────────────────────┐
+│ iDempiere: GET BPartner,         │
+│            GET BPartner_Location, │
+│            GET C_Location         │
+│ (Adressdaten laden)              │
+└────────┬─────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────┐
+│ Backend: JWT Token erstellen     │
+│ Payload: { userId, email,       │
+│   businessPartnerId,            │
+│   bpLocationId, contactId }     │
+└──────────┬───────────────────────┘
            │
            ▼
-┌──────────────────────────────────────┐
-│ Response 200 + Set-Cookie            │
-│ auth_token=<JWT>; HttpOnly           │
-│ {user: {...}}                        │
-└──────────┬───────────────────────────┘
+┌──────────────────────────────────┐
+│ Response 201 + Set-Cookie        │
+│ auth_token=<JWT>; HttpOnly       │
+│ { success: true, user: {...} }   │
+└──────────┬───────────────────────┘
            │
            ▼
 ┌─────────────┐
 │   Frontend  │
-│ - Save user │
-│ - Set token │
+│ - user State│
+│   setzen    │
 │ - Redirect  │
-│   to /dash  │
+│   → /dash   │
 └─────────────┘
 ```
 
@@ -1076,37 +1012,48 @@ Response:
 ┌─────────────┐
 │   Frontend  │
 └──────┬──────┘
-       │ 1. User klickt "Registrieren"
-       │ 2. Fill form + submit
+       │ POST /api/auth/register
+       │ { email, password, firstName,
+       │   lastName, billingAddress, ... }
        ▼
 ┌────────────────────────────────────┐
-│  POST /api/auth/register            │
-│  {email, password, firstName,       │
-│   lastName, billingAddress, ...}    │
-└────────┬──────────────────────────┘
+│ Backend: registrationService.js    │
+│ registerUser(registerData)         │
+└────────┬───────────────────────────┘
          │
-         ▼
-┌──────────────────────────────────────────┐
-│ Backend: registrationService.js          │
-│ registerUser(registerData)               │
-└────────┬────────────────────────────────┘
-         │
-    ┌────┴────┬──────┬──────┬──────┬──────┐
-    │          │      │      │      │      │
-◄───►1. Check if email exists (AD_User + BPartner)
-    │  2. POST /models/c_location (create address)
-    │  3. POST /models/c_bpartner (create customer)
-    │  4. POST /models/c_bpartner_location (link)
-    │  5. POST /models/ad_user (create login user)
-    │  6. POST /models/ad_user_roles (assign role)
-    │
-    └────┬────┘
-         │ All 6 steps OK? Create JWT
-         ▼
+         ▼ Sequenzielle Schritte gegen iDempiere:
+    ┌────────────────────────────────────────────────────┐
+    │                                                     │
+    │  1. Check: Email bereits vergeben?                  │
+    │     GET /models/ad_user?$filter=EMail eq '...'      │
+    │     GET /models/c_bpartner?$filter=Value eq '...'   │
+    │     → Bei Fund: Abbruch mit 409                     │
+    │                                                     │
+    │  2. POST /models/c_location (Adresse erstellen)     │
+    │     → locationId                                    │
+    │                                                     │
+    │  3. POST /models/c_bpartner (Kunde erstellen)       │
+    │     → bPartnerId                                    │
+    │                                                     │
+    │  4. POST /models/c_bpartner_location (Verknüpfung)  │
+    │     Name = Stadtname                                │
+    │     → bpLocationId                                  │
+    │                                                     │
+    │  5. POST /models/ad_user (Login-User erstellen)     │
+    │     Name = Email (für iDempiere Login)               │
+    │     → adUserId                                      │
+    │                                                     │
+    │  6. POST /models/ad_user_roles (Rolle zuweisen)     │
+    │     Role: 1000000 (nicht-fatal bei Fehler)          │
+    │                                                     │
+    └────────────────┬───────────────────────────────────┘
+                     │ Alle Schritte OK
+                     ▼
 ┌─────────────────────────┐
-│ Response 201 + Cookie   │
-│ auth_token=<JWT>        │
-│ {user: {...}}           │
+│ JWT erstellen + Cookie   │
+│ Response 201             │
+│ { success: true,         │
+│   user: {...} }          │
 └─────────────────────────┘
          │
          ▼
@@ -1114,7 +1061,7 @@ Response:
 │   Frontend  │
 │ - Auto-Login│
 │ - Redirect  │
-│   to /dash  │
+│   → /dash   │
 └─────────────┘
 ```
 
@@ -1125,55 +1072,59 @@ Response:
 ```
 ┌──────────────────┐
 │     Frontend     │
-│   (in /checkout)│
+│  (in /checkout)  │
 └────────┬─────────┘
-         │ 1. User klickt "Bestellen"
-         │ 2. Cart items → POST payload
-         │ 3. JWT already in cookie
+         │ User klickt "Bestellen"
+         │ Cart items → { lines: [{M_Product_ID, QtyOrdered}],
+         │                POReference: "WebShop-<timestamp>" }
+         │ JWT Cookie wird automatisch mitgesendet
          ▼
-┌────────────────────────────────────┐
-│  POST /api/orders/create-and-complete
-│  {lines: [{M_Product_ID, QtyOrdered}]}│
-┌────────┬───────────────────────────┘
-         │
-         ▼ JWT + Rate Limiter Checks
-┌─────────────────────────────────────┐
-│ Backend: orderService.js            │
-│ createAndCompleteOrder(orderData,   │
-│   userData from JWT)                │
-└────────┬───────────────────────────┘
-         │
-    ┌────┴────┬───────┐
-    │          │       │
-◄───►Step 1: POST /models/c_order (create header)
-    │ ├─ C_BPartner_ID = userData.businessPartnerId
-    │ ├─ C_BPartner_Location_ID = userData.bpLocationId
-    │ ├─ AD_User_ID = userData.contactId
-    │ └─ Bill_* = same
-    │
-    │ Step 2: POST /models/c_orderline (for each line)
-    │ └─ Link each product to order
-    │
-    │ Step 3: PUT /models/c_order/{id}
-    │ ├─ doc-action: "CO" (Complete)
-    │ └─ Order moves from Draft to Completed
-    │
-    └────┬────┘
-         │
+┌──────────────────────────────────────────┐
+│  POST /api/orders/create-and-complete    │
+│  Middleware: requireAuth → authorize()   │
+│             → orderRateLimiter           │
+└────────┬─────────────────────────────────┘
+         │ userData aus JWT extrahiert:
+         │ { businessPartnerId, bpLocationId, contactId }
          ▼
+┌──────────────────────────────────────────┐
+│ Backend: orderService.js                 │
+│ createAndCompleteOrder(orderData, userData)│
+└────────┬─────────────────────────────────┘
+         │
+    ┌────┴──────────────────────────────────────┐
+    │                                            │
+    │ Step 1: POST /models/c_order               │
+    │  ├─ C_BPartner_ID = userData.bPartnerId    │
+    │  ├─ C_BPartner_Location_ID = userData.bpLoc│
+    │  ├─ AD_User_ID = userData.contactId        │
+    │  ├─ Bill_* = same                          │
+    │  └─ Config-Werte aus ORDER_CONFIG          │
+    │  → orderId                                 │
+    │                                            │
+    │ Step 2: POST /models/c_orderline (je Zeile)│
+    │  └─ M_Product_ID + QtyOrdered              │
+    │                                            │
+    │ Step 3: PUT /models/c_order/{orderId}      │
+    │  └─ doc-action: "CO" (Complete)            │
+    │                                            │
+    └────────────┬──────────────────────────────┘
+                 │
+                 ▼
 ┌────────────────────────────────┐
 │ Response 200                   │
-│ {id, DocumentNo, GrandTotal,   │
-│  lines: [...]}                 │
+│ { id, DocumentNo, DocStatus,   │
+│   GrandTotal }                 │
 └────────┬───────────────────────┘
          │
          ▼
 ┌──────────────────┐
 │     Frontend     │
-│ - Order Success! │
-│ - Clear cart     │
-│ - Redirect to    │
-│   /order-confirm │
+│ - Order in       │
+│   localStorage   │
+│ - Cart leeren    │
+│ - Redirect →     │
+│  /order-confirm  │
 └──────────────────┘
 ```
 
@@ -1183,15 +1134,8 @@ Response:
 
 ### JWT Token Structure
 
-**JWT Header:**
-```json
-{
-  "alg": "HS256",
-  "typ": "JWT"
-}
-```
+**JWT Payload (Backend-seitig):**
 
-**JWT Payload:**
 ```json
 {
   "userId": "1000021",
@@ -1204,9 +1148,9 @@ Response:
 }
 ```
 
-**JWT Secret:** Aus `.env` Variable `JWT_SECRET` (mindestens 32 Zeichen)
+**JWT Secret:** Aus `.env` Variable `JWT_SECRET`. Default in config.js: `'your-secret-key-change-in-production'` -- **muss in Produktion geändert werden!**
 
-**Validity:** 7 days (604800 seconds)
+**Gültigkeit:** 7 Tage
 
 ---
 
@@ -1227,30 +1171,19 @@ res.cookie('auth_token', token, {
 
 **Implementierung:** `server/middleware/security.js`
 
-| Endpoint | Limit | Fenster |
-|----------|-------|---------|
-| Login | 5 attempts | 15 minutes |
-| Register | 5 attempts | 15 minutes |
-| Orders | 10 attempts | 15 minutes |
-| General API | 100 requests | 15 minutes |
+| Limiter | Fenster | Max | Key | Besonderheit | Angewendet auf |
+|---------|---------|-----|-----|-------------|----------------|
+| `apiRateLimiter` | 15 Min | 100 | IP | – | Alle `/api` Routen |
+| `loginRateLimiter` | 15 Min | 5 | IP | `skipSuccessfulRequests: true` | Login + Register |
+| `orderRateLimiter` | 1 Stunde | 10 | `user:<userId>` | Pro User, nicht pro IP | Order-Erstellung |
 
-**Beispiel – Login Rate Limiter:**
-
-```javascript
-const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: 'Zu viele Login-Versuche, bitte versuchen Sie es später erneut',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-```
+**`skipSuccessfulRequests`** beim Login-Limiter bedeutet: Nur fehlgeschlagene Versuche zählen. Erfolgreiche Logins verbrauchen kein Rate-Limit-Budget.
 
 ---
 
-### Authorization
+### Authorization Middleware
 
-**Middleware: `requireAuth`** in `routes/auth.js`
+**`requireAuth`** in `server/routes/auth.js`:
 
 ```javascript
 export async function requireAuth(req, res, next) {
@@ -1260,7 +1193,7 @@ export async function requireAuth(req, res, next) {
       return res.status(401).json({ message: 'Authentifizierung erforderlich' });
     }
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;  // Attach to request for downstream use
+    req.user = decoded;
     next();
   } catch (error) {
     res.clearCookie('auth_token');
@@ -1269,39 +1202,23 @@ export async function requireAuth(req, res, next) {
 }
 ```
 
-**Verwendung in Route:**
+**`authorize()`** in `server/middleware/security.js`:
 
-```javascript
-router.post(
-  '/orders/create-and-complete',
-  requireAuth,           // Check JWT
-  authorize(),          // Check roles/permissions
-  orderRateLimiter,     // Check rate limit
-  async (req, res) => { ... }
-);
-```
+Wird in der Order-Route mit `authorize()` (ohne Argumente) aufgerufen. Prüft im Wesentlichen nur ob `req.user` existiert. Enthält Placeholder-Logik für `customerType`- und `resourceOwnership`-Checks (nicht implementiert).
 
 ---
 
 ### CORS Configuration
 
-**Allowed Origins (Development):**
-
 ```javascript
 app.use(cors({
   origin: [
     'http://localhost:5173',    // Vite Dev Server
-    'http://localhost:3000',    // Backend (for debugging)
+    'http://localhost:3000',    // Alternative
     'http://127.0.0.1:5173',
   ],
-  credentials: true,  // Allow cookies
+  credentials: true,  // Cookies erlauben
 }));
-```
-
-**Production:** Sollte auf echte Domain geändert werden, z.B.:
-
-```javascript
-origin: 'https://dualesuessikeiten.de',
 ```
 
 ---
@@ -1310,170 +1227,61 @@ origin: 'https://dualesuessikeiten.de',
 
 ### Error Response Format
 
-**Standardformat für alle Fehler:**
-
 ```json
 {
-  "message": "Beschreibung des Fehlers",
-  "code": "ERROR_CODE" // Optional
+  "message": "Beschreibung des Fehlers"
 }
 ```
-
----
 
 ### HTTP Status Codes
 
 | Code | Bedeutung | Beispiel |
 |------|-----------|---------|
 | 200 | OK | Erfolgreiches Request |
-| 201 | Created | Benutzer registriert / Bestellung erstellt |
-| 400 | Bad Request | Ungültige Eingabe (validierung fehlgeschlagen) |
-| 401 | Unauthorized | Keine Authentication (kein JWT) |
-| 403 | Forbidden | Nicht autorisiert (User hat keine Rolle) |
-| 409 | Conflict | Duplicate (z.B. Email existiert schon) |
+| 201 | Created | Benutzer registriert / Login erfolgreich |
+| 400 | Bad Request | Ungültige Eingabe |
+| 401 | Unauthorized | Keine/ungültige Authentication |
+| 409 | Conflict | Email bereits registriert |
 | 429 | Too Many Requests | Rate Limit überschritten |
 | 500 | Internal Server Error | Fehler im Backend oder iDempiere |
 
 ---
 
-### Error Handling Beispiele
-
-**Validierungsfehler:**
-
-```json
-HTTP 400 Bad Request
-
-{
-  "message": "Email und Passwort sind erforderlich"
-}
-```
-
-**Authentifizierungsfehler:**
-
-```json
-HTTP 401 Unauthorized
-
-{
-  "message": "Ungültige Email oder Passwort"
-}
-```
-
-**Duplicate Email:**
-
-```json
-HTTP 409 Conflict
-
-{
-  "message": "Diese Email ist bereits registriert"
-}
-```
-
-**Rate Limit:**
-
-```json
-HTTP 429 Too Many Requests
-
-{
-  "message": "Zu viele Login-Versuche, bitte versuchen Sie es später erneut"
-}
-```
-
-**iDempiere Error:**
-
-```json
-HTTP 500 Internal Server Error
-
-{
-  "message": "Order create failed: [iDempiere error details]"
-}
-```
-
----
-
 ## Audit Logging
 
-**Datei:** `server/services/auditService.js`
+**Implementierung:** `server/services/auditService.js`
+
+**Speicherort:** `server/logs/audit.log` (NDJSON -- eine JSON-Zeile pro Event)
+
+### Log Entry Format
+
+```json
+{
+  "timestamp": "2026-03-30T10:30:15.123Z",
+  "userId": "1000021",
+  "email": "user@example.com",
+  "action": "LOGIN",
+  "resource": "auth",
+  "details": { "method": "email_password" },
+  "ip": "::1",
+  "userAgent": "Mozilla/5.0...",
+  "success": true
+}
+```
 
 ### Logged Events
 
-**LOGIN:**
-```json
-{
-  "timestamp": "2026-03-30T10:30:15.123Z",
-  "userId": "1000021",
-  "email": "user@example.com",
-  "action": "LOGIN_SUCCESS",
-  "ip": "192.168.1.100",
-  "userAgent": "Mozilla/5.0...",
-  "success": true
-}
-```
-
-**LOGIN_FAILURE:**
-```json
-{
-  "timestamp": "2026-03-30T10:30:15.123Z",
-  "email": "user@example.com",
-  "action": "LOGIN_FAILURE",
-  "reason": "invalid_credentials",
-  "ip": "192.168.1.100",
-  "success": false
-}
-```
-
-**REGISTRATION:**
-```json
-{
-  "timestamp": "2026-03-30T10:35:20.456Z",
-  "userId": "1000022",
-  "email": "new@example.com",
-  "action": "REGISTRATION_SUCCESS",
-  "ip": "192.168.1.100",
-  "userAgent": "Mozilla/5.0...",
-  "success": true
-}
-```
-
-**ORDER_CREATION:**
-```json
-{
-  "timestamp": "2026-03-30T11:00:45.789Z",
-  "userId": "1000021",
-  "email": "user@example.com",
-  "action": "ORDER_CREATION_SUCCESS",
-  "orderId": "1000015",
-  "orderTotal": 50.00,
-  "ip": "192.168.1.100",
-  "userAgent": "Mozilla/5.0...",
-  "success": true
-}
-```
-
-**LOGOUT:**
-```json
-{
-  "timestamp": "2026-03-30T12:00:00.000Z",
-  "userId": "1000021",
-  "email": "user@example.com",
-  "action": "LOGOUT",
-  "ip": "192.168.1.100",
-  "userAgent": "Mozilla/5.0...",
-  "success": true
-}
-```
-
----
-
-### Log Storage
-
-**Datei:** `server/logs/audit.log`
-
-Format: Zeilenweise JSON (eine Event pro Zeile)
-
-```
-{"timestamp":"2026-03-30T10:30:15.123Z","userId":"1000021",...}
-{"timestamp":"2026-03-30T10:30:20.456Z","userId":"1000022",...}
-```
+| Funktion | action | resource | details |
+|---|---|---|---|
+| `logLoginSuccess(...)` | `LOGIN` | `auth` | `{ method: "email_password" }` |
+| `logLoginFailure(...)` | `LOGIN_FAILED` | `auth` | `{ reason: "..." }` |
+| `logLogout(...)` | `LOGOUT` | `auth` | `{}` |
+| `logRegistration(...)` | `REGISTER` | `auth` | `{}` |
+| `logRegistrationFailure(...)` | `REGISTER_FAILED` | `auth` | `{ reason: "..." }` |
+| `logOrderCreation(...)` | `CREATE_ORDER` | `orders` | `{ orderId, total }` |
+| `logOrderCreationFailure(...)` | `CREATE_ORDER_FAILED` | `orders` | `{ reason: "..." }` |
+| `logCatalogAccess(...)` | `VIEW_CATALOG` | `catalog` | `{}` |
+| `logUnauthorizedAccess(...)` | `UNAUTHORIZED_ACCESS` | (dynamisch) | `{ attemptedAction, reason }` |
 
 ---
 
@@ -1481,75 +1289,67 @@ Format: Zeilenweise JSON (eine Event pro Zeile)
 
 ### Environment Variables (`.env`)
 
+Vollständige Liste aller Umgebungsvariablen -- siehe `.env.example`:
+
 ```bash
 # Server
-PORT=3000
-NODE_ENV=development
+PORT=3001
 
-# iDempiere
-IDEMPIERE_BASE_URL=http://localhost:8080/webservices/rest/v1
-IDEMPIERE_SERVICE_USER=GardenAdmin
-IDEMPIERE_SERVICE_PASSWORD=xxxx
+# iDempiere Connection
+IDEMPIERE_BASE_URL=http://localhost:8080/api/v1
+IDEMPIERE_USER=GardenAdmin
+IDEMPIERE_PASSWORD=your-idempiere-password
 
-# Auth
-JWT_SECRET=your-super-secret-key-min-32-chars-long-xxx
-JWT_EXPIRES_IN=7d
+# iDempiere Context Selection
+IDEMPIERE_CLIENT_ID=11
+IDEMPIERE_ROLE_ID=102
+IDEMPIERE_ORG_ID=11
+IDEMPIERE_WAREHOUSE_ID=1000000
+IDEMPIERE_LANGUAGE=en_US
 
-# Auth Config (Order Defaults)
-AUTH_ORG_ID=1000000
-AUTH_WAREHOUSE_ID=1000226
+# Catalog
+IDEMPIERE_PRODUCT_CATEGORY_ID=1000000
+IDEMPIERE_PRICE_LIST_VERSION_ID=104
 
-# Order Config (Defaults)
-ORDER_IS_SO_TRX=true
-ORDER_IS_SELF_SERVICE=true
-ORDER_AD_ORG_ID=1000000
-ORDER_DOC_TYPE_TARGET_ID=1000082
-ORDER_SALES_REP_ID=1000016
-ORDER_PAYMENT_TERM_ID=1000000
-ORDER_PRICE_LIST_ID=1000003
-ORDER_SHIPPER_ID=1000000
-ORDER_PAYMENT_RULE=P
-ORDER_DELIVERY_VIA_RULE=D
+# Order Configuration
+IDEMPIERE_ORDER_BPARTNER_ID=119
+IDEMPIERE_ORDER_BPARTNER_LOCATION_ID=116
+IDEMPIERE_ORDER_ORG_ID=11
+IDEMPIERE_ORDER_DOCTYPE_ID=133
+IDEMPIERE_ORDER_USER_ID=102
+IDEMPIERE_ORDER_SALESREP_ID=101
+IDEMPIERE_ORDER_BILL_BPARTNER_ID=119
+IDEMPIERE_ORDER_BILL_LOCATION_ID=116
+IDEMPIERE_ORDER_BILL_USER_ID=102
+IDEMPIERE_ORDER_PAYMENT_TERM_ID=105
+IDEMPIERE_ORDER_PRICE_LIST_ID=101
+IDEMPIERE_ORDER_SHIPPER_ID=100
+IDEMPIERE_ORDER_PAYMENT_RULE=P
+IDEMPIERE_ORDER_DELIVERY_RULE=S
+IDEMPIERE_ORDER_POREFERENCE=easwebtestfixed
+
+# JWT Authentication
+JWT_SECRET=your-super-secret-key-at-least-32-characters-long
 ```
+
+**Hinweis:** Einige `ORDER_CONFIG` Felder (C_BPartner_ID, Bill_BPartner_ID, etc.) werden bei authentifizierten Bestellungen mit den JWT-Userdaten überschrieben. Sie dienen als Fallback-Defaults.
 
 ---
 
 ### Configuration File (`server/config.js`)
 
-```javascript
-export const PORT = process.env.PORT || 3000;
-export const NODE_ENV = process.env.NODE_ENV || 'development';
+Die Konfigurationsdatei liest Umgebungsvariablen und exportiert:
 
-export const IDEMPIERE_BASE_URL = process.env.IDEMPIERE_BASE_URL;
-export const IDEMPIERE_CREDENTIALS = {
-  userName: process.env.IDEMPIERE_SERVICE_USER,
-  password: process.env.IDEMPIERE_SERVICE_PASSWORD,
-};
-
-export const JWT_SECRET = process.env.JWT_SECRET;
-export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-
-export const AUTH_CONFIG = {
-  parameters: {
-    organizationId: parseInt(process.env.AUTH_ORG_ID || '1000000'),
-    warehouseId: parseInt(process.env.AUTH_WAREHOUSE_ID || '1000226'),
-  },
-};
-
-export const ORDER_CONFIG = {
-  IsSOTrx: JSON.parse(process.env.ORDER_IS_SO_TRX || 'true'),
-  IsSelfService: JSON.parse(process.env.ORDER_IS_SELF_SERVICE || 'true'),
-  AD_Org_ID: parseInt(process.env.ORDER_AD_ORG_ID || '1000000'),
-  C_DocTypeTarget_ID: parseInt(process.env.ORDER_DOC_TYPE_TARGET_ID || '1000082'),
-  SalesRep_ID: parseInt(process.env.ORDER_SALES_REP_ID || '1000016'),
-  C_PaymentTerm_ID: parseInt(process.env.ORDER_PAYMENT_TERM_ID || '1000000'),
-  M_PriceList_ID: parseInt(process.env.ORDER_PRICE_LIST_ID || '1000003'),
-  M_Shipper_ID: parseInt(process.env.ORDER_SHIPPER_ID || '1000000'),
-  PaymentRule: process.env.ORDER_PAYMENT_RULE || 'P',
-  DeliveryViaRule: process.env.ORDER_DELIVERY_VIA_RULE || 'D',
-  POReference: 'WebShop',
-};
-```
+| Export | Beschreibung |
+|---|---|
+| `PORT` | Server-Port (Default: 3001) |
+| `IDEMPIERE_BASE_URL` | iDempiere REST API URL |
+| `AUTH_CONFIG` | Service Account Credentials + Context Selection Parameter |
+| `CATALOG_CONFIG` | Produktkategorie + Preislisten-Version |
+| `ORDER_CONFIG` | Alle Order-Default-Werte |
+| `TOKEN_TTL_MS` | iDempiere Token Cache TTL (20 Minuten) |
+| `JWT_SECRET` | JWT Signing Secret |
+| `JWT_EXPIRES_IN` | JWT Gültigkeitsdauer (`'7d'`) |
 
 ---
 
@@ -1557,35 +1357,35 @@ export const ORDER_CONFIG = {
 
 ### Frontend
 
-- Build: `npm run build` → `dist/` folder
-- Deploy to Apache, Nginx, or S3
-- Environment: `.env.production` for API_URL
+- Build: `npm run build` → `dist/` Ordner
+- Deploy auf Apache, Nginx oder S3
+- SPA-Routing erfordert Fallback auf `index.html` (Apache: `FallbackResource`, Nginx: `try_files`)
 
 ### Backend
 
-- Node.js 18+ erforderlich
-- Process Manager empfohlen: PM2, systemd, Docker
-- Environment: `.env` mit iDempiere-Credentials
-- CORS: Auf Production-Domain anpassen
-- Cookies: `secure: true` wenn HTTPS aktiv
+- Node.js 18+ erforderlich (ESM)
+- Empfohlen: PM2 oder systemd als Process Manager
+- `.env` Datei mit iDempiere-Credentials
+- CORS-Origins auf Production-Domain anpassen
+- Cookie `secure: true` setzen wenn HTTPS aktiv
 
 ### iDempiere
 
 - REST API muss erreichbar sein
-- Service Account (GardenAdmin) muss existieren
-- Rollen und Berechtigungen konfigurieren
-- Index erstellen für schnelle Queries
+- Service Account (GardenAdmin) muss existieren mit korrekter Rolle
+- Webshop-Rolle (ID 1000000) muss für neue User existieren
+- Produkte müssen `IsWebStoreFeatured = true` haben für Katalog-Anzeige
 
 ---
 
 ## Security Checklist
 
-- [ ] JWT_SECRET: Mindestens 32 Zeichen, zufällig
-- [ ] HTTPS in Production (Set cookie `secure: true`)
-- [ ] CORS: Auf Production-Domains beschränken
-- [ ] Rate Limiting: Alle Auth-Endpoints geschützt
+- [ ] `JWT_SECRET` in `.env`: Mindestens 32 Zeichen, kryptografisch zufällig
+- [ ] HTTPS in Production aktivieren + Cookie `secure: true`
+- [ ] CORS: Auf Production-Domain beschränken
+- [ ] Rate Limiting: Konfiguriert und getestet
 - [ ] iDempiere-Credentials: In `.env`, nicht in Code
-- [ ] Audit Logs: Regelmäßig überprüft
-- [ ] SQL Injection: N/A (iDempiere REST API ist ORM, kein SQL)
-- [ ] XSS: React escapet automatisch, aber DOMPurify bei User Input empfohlen
-
+- [ ] `.env` in `.gitignore` (keine Secrets im Repository)
+- [ ] Audit Logs: Regelmäßig überprüfen
+- [ ] OData Filter: Email-Input sanitieren (aktuell keine Sanitisierung)
+- [ ] XSS: React escapet automatisch, DOMPurify bei User-Input empfohlen
