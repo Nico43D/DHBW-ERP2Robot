@@ -5,7 +5,7 @@ export const PORT = Number(process.env.PORT || 3001);
 
 // iDempiere REST API Basis-URL
 export const IDEMPIERE_BASE_URL =
-  process.env.IDEMPIERE_BASE_URL || 'http://141.72.176.110:8080/api/v1';
+  process.env.IDEMPIERE_BASE_URL || 'http://localhost:8080/api/v1';
 
 // Authentifizierung: User, Passwort und Kontextparameter (Client, Rolle, Org, Warehouse, Sprache)
 export const AUTH_CONFIG = {
@@ -55,3 +55,8 @@ export const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-p
 
 // JWT Token Lebensdauer: 7 Tage
 export const JWT_EXPIRES_IN = '7d';
+
+// Registrierungs-Konfiguration: Rolle für neue Webshop-Kunden
+export const REGISTRATION_CONFIG = {
+  roleId: Number(process.env.IDEMPIERE_REGISTRATION_ROLE_ID || 1000000),
+};

@@ -1,8 +1,5 @@
 import { idempiereFetch } from '../idempiere/client.js';
-import { AUTH_CONFIG } from '../config.js';
-
-// Web Shop Customer Role ID
-const WEB_SHOP_CUSTOMER_ROLE_ID = 1000000;
+import { AUTH_CONFIG, REGISTRATION_CONFIG } from '../config.js';
 
 /**
  * Registriert einen neuen User in iDempiere
@@ -99,7 +96,7 @@ export async function registerUser(registerData) {
     console.log('[REGISTER] AD_User ID:', adUserId);
 
     // Schritt 6: Rolle "Web Shop Customer" zuweisen
-    const roleAssigned = await assignUserRole(adUserId, WEB_SHOP_CUSTOMER_ROLE_ID);
+    const roleAssigned = await assignUserRole(adUserId, REGISTRATION_CONFIG.roleId);
     if (!roleAssigned) {
       console.error('[REGISTER] Failed to assign role');
       // Nicht fatal - User wurde erstellt, nur Rolle fehlt
