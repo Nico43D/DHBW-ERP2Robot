@@ -1,4 +1,4 @@
-import { idempiereFetch } from '../idempiere/client.js';
+import { idempiereFetch, odataSafe } from '../idempiere/client.js';
 import { IDEMPIERE_BASE_URL, AUTH_CONFIG } from '../config.js';
 
 /**
@@ -38,7 +38,7 @@ export async function authenticateUser(email, password) {
 
     // Schritt 2: Suche AD_User über Email mit GardenAdmin-Token
     const userRes = await idempiereFetch(
-      `/models/ad_user?$filter=EMail eq '${email}'`
+      `/models/ad_user?$filter=EMail eq '${odataSafe(email)}'`
     );
 
     if (!userRes.ok) {

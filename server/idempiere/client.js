@@ -2,6 +2,14 @@ import { IDEMPIERE_BASE_URL } from '../config.js';
 import { authenticate, invalidateAuthToken } from './auth.js';
 
 /**
+ * Escaped einen Wert für die Verwendung in OData $filter-Strings.
+ * Verhindert OData-Injection durch Verdopplung von Einzelanführungszeichen.
+ */
+export function odataSafe(val) {
+  return String(val).replace(/'/g, "''");
+}
+
+/**
  * Zentraler HTTP-Client für iDempiere API-Calls
  * - Authentifiziert automatisch
  * - Injiziert Bearer Token in header

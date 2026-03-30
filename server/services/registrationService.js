@@ -1,4 +1,4 @@
-import { idempiereFetch } from '../idempiere/client.js';
+import { idempiereFetch, odataSafe } from '../idempiere/client.js';
 import { AUTH_CONFIG, REGISTRATION_CONFIG } from '../config.js';
 
 /**
@@ -24,7 +24,7 @@ export async function registerUser(registerData) {
 
     // Schritt 1: Prüfe ob Email bereits existiert (AD_User ODER BPartner)
     const existingUserRes = await idempiereFetch(
-      `/models/ad_user?$filter=EMail eq '${email}'`
+      `/models/ad_user?$filter=EMail eq '${odataSafe(email)}'`
     );
 
     if (existingUserRes.ok) {
@@ -37,7 +37,7 @@ export async function registerUser(registerData) {
 
     // Prüfe auch ob BPartner mit dieser Email als Value existiert
     const existingBPRes = await idempiereFetch(
-      `/models/c_bpartner?$filter=Value eq '${email}'`
+      `/models/c_bpartner?$filter=Value eq '${odataSafe(email)}'`
     );
 
     if (existingBPRes.ok) {
@@ -133,7 +133,7 @@ async function findOrCreateLocation(address) {
 
   // Suche nach existierender Location (gleiche Adresse)
   const searchRes = await idempiereFetch(
-    `/models/c_location?$filter=Address1 eq '${street}' and Postal eq '${zipCode}' and City eq '${city}'`
+    `/models/c_location?$filter=Address1 eq '${odataSafe(street)}' and Postal eq '${odataSafe(zipCode)}' and City eq '${odataSafe(city)}'`
   );
 
   if (searchRes.ok) {
@@ -149,7 +149,7 @@ async function findOrCreateLocation(address) {
   let countryId = 101; // Default: Deutschland
   if (country && country !== 'Deutschland') {
     const countryRes = await idempiereFetch(
-      `/models/c_country?$filter=Name eq '${country}'`
+      `/models/c_country?$filter=Name eq '${odataSafe(country)}'`
     );
     if (countryRes.ok) {
       const countryData = await countryRes.json();
