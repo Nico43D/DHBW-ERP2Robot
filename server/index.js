@@ -11,6 +11,9 @@ import { apiRateLimiter } from './middleware/security.js';
 // Initialisiere Express-App
 const app = express();
 
+// Deployment hinter genau einem Reverse Proxy (Apache)
+app.set('trust proxy', 1);
+
 // CORS: Erlaube Anfragen vom Frontend (Vite Dev-Server)
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
