@@ -1,4 +1,12 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from project root so PM2 cwd does not affect env resolution.
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Port auf dem der Backend läuft
 export const PORT = Number(process.env.PORT || 3001);
