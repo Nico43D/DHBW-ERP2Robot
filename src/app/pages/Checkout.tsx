@@ -1,11 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate, Link } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { MapPin, CreditCard as CreditCardIcon, Loader2, AlertCircle } from 'lucide-react';
-import { createOrder, OrderData } from '../services/api';
+import { createOrder, fetchBankAccount, OrderData } from '../services/api';
+
+function detectCardType(cardNumber: string): string {
+  const num = cardNumber.replace(/\s/g, '');
+  if (/^4/.test(num)) return 'V';
+  if (/^5[1-5]/.test(num) || /^2[2-7]/.test(num)) return 'M';
+  if (/^3[47]/.test(num)) return 'A';
+  if (/^6(?:011|5)/.test(num)) return 'D';
+  return '';
+}
+
+const CARD_TYPE_LABELS: Record<string, string> = {
+  V: 'Visa',
+  M: 'MasterCard',
+  A: 'Amex',
+  D: 'Discover',
+};
 
 interface CreditCardData {
   cardHolder: string;
@@ -40,10 +56,27 @@ export default function Checkout() {
         }
   );
 
-  const [errors, setErrors] = useState<Partial<CreditCardData>>({});
+  const detectedCardType = detectCardType(creditCard.cardNumber);
+
+  const [errors, setErrors] = useState<Partial<Record<keyof CreditCardData, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof CreditCardData, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Gespeicherte Kreditkartendaten aus iDempiere laden
+  useEffect(() => {
+    if (isSimplifiedMode) return;
+    fetchBankAccount().then((data) => {
+      if (data.exists && data.cardHolder) {
+        setCreditCard({
+          cardHolder: data.cardHolder || '',
+          cardNumber: data.cardNumberRaw || '',
+          expiryDate: data.expiryDate || '',
+          cvc: data.cvc || '',
+        });
+      }
+    }).catch(() => {});
+  }, [isSimplifiedMode]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login?redirect=checkout&message=login-required" replace />;
@@ -103,12 +136,12 @@ export default function Checkout() {
 
     switch (field) {
       case 'cardHolder':
-        if (!value.trim()) {
+        if (!String(value).trim()) {
           error = 'Karteninhaber ist erforderlich';
         }
         break;
       case 'cardNumber':
-        const cardNumberOnly = value.replace(/\s/g, '');
+        const cardNumberOnly = String(value).replace(/\s/g, '');
         if (!cardNumberOnly) {
           error = 'Kartennummer ist erforderlich';
         } else if (cardNumberOnly.length < 15) {
@@ -119,11 +152,11 @@ export default function Checkout() {
         if (!value) {
           error = 'Ablaufdatum ist erforderlich';
         } else {
-          const [month, year] = value.split('/');
+          const [month, year] = String(value).split('/');
           const currentDate = new Date();
           const currentYear = currentDate.getFullYear() % 100;
           const currentMonth = currentDate.getMonth() + 1;
-          
+
           if (!month || !year || parseInt(month) < 1 || parseInt(month) > 12) {
             error = 'Ungültiges Datum';
           } else if (
@@ -137,7 +170,7 @@ export default function Checkout() {
       case 'cvc':
         if (!value) {
           error = 'CVC ist erforderlich';
-        } else if (value.length < 3) {
+        } else if (String(value).length < 3) {
           error = 'Ungültiger CVC';
         }
         break;
@@ -181,6 +214,16 @@ export default function Checkout() {
           QtyOrdered: item.quantity,
         })),
         POReference: `WebShop-${Date.now()}`,
+        paymentMethod: formData.paymentMethod,
+        ...(formData.paymentMethod === 'kreditkarte' && {
+          creditCard: {
+            cardHolder: creditCard.cardHolder,
+            cardNumber: creditCard.cardNumber,
+            expiryDate: creditCard.expiryDate,
+            cvc: creditCard.cvc,
+            creditCardType: detectedCardType,
+          },
+        }),
       };
 
       const apiResponse = await createOrder(orderData);
@@ -251,8 +294,8 @@ export default function Checkout() {
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-semibold text-xl">Adressen</h2>
                   {!isSimplifiedMode && (
-                    <Link 
-                      to="/account/addresses" 
+                    <Link
+                      to="/account/addresses"
                       className="text-sm text-[#EB1A2B] hover:underline font-medium flex items-center gap-1"
                     >
                       <MapPin className="h-4 w-4" />
@@ -382,19 +425,26 @@ export default function Checkout() {
                         <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
                           Kartennummer *
                         </label>
-                        <input
-                          type="text"
-                          id="cardNumber"
-                          value={creditCard.cardNumber}
-                          onChange={(e) => handleCreditCardChange('cardNumber', e.target.value)}
-                          onBlur={() => handleCreditCardBlur('cardNumber')}
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                            touched.cardNumber && errors.cardNumber
-                              ? 'border-red-500 focus:ring-red-500'
-                              : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
-                          }`}
-                          placeholder="1234 5678 9012 3456"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            id="cardNumber"
+                            value={creditCard.cardNumber}
+                            onChange={(e) => handleCreditCardChange('cardNumber', e.target.value)}
+                            onBlur={() => handleCreditCardBlur('cardNumber')}
+                            className={`w-full px-4 py-2 pr-28 border rounded-lg focus:outline-none focus:ring-2 ${
+                              touched.cardNumber && errors.cardNumber
+                                ? 'border-red-500 focus:ring-red-500'
+                                : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
+                            }`}
+                            placeholder="1234 5678 9012 3456"
+                          />
+                          {detectedCardType && (
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
+                              {CARD_TYPE_LABELS[detectedCardType]}
+                            </span>
+                          )}
+                        </div>
                         {touched.cardNumber && errors.cardNumber && (
                           <p className="mt-1 text-sm text-red-600">{errors.cardNumber}</p>
                         )}
@@ -497,7 +547,7 @@ export default function Checkout() {
             <div className="lg:col-span-1">
               <Card className="p-6 sticky top-24">
                 <h2 className="font-semibold text-xl mb-4">Bestellübersicht</h2>
-                
+
                 <div className="space-y-3 mb-6">
                   {items.map((item) => (
                     <div key={item.productId} className="flex gap-3 items-center">
@@ -509,7 +559,7 @@ export default function Checkout() {
                           className="h-full w-full object-contain"
                         />
                       </div>
-                      
+
                       {/* Product Details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between text-sm">

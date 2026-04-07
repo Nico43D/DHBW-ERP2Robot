@@ -29,6 +29,16 @@ router.post(
         return res.status(400).json({ message: 'Order payload requires non-empty lines array' });
       }
 
+      // Kreditkarten-Validierung wenn Zahlungsart = kreditkarte
+      const { paymentMethod, creditCard } = orderData;
+      if (paymentMethod === 'kreditkarte') {
+        if (!creditCard || !creditCard.cardHolder || !creditCard.cardNumber
+            || !creditCard.expiryDate || !creditCard.cvc) {
+          logOrderCreationFailure(userId, email, 'missing_credit_card_data', ip, userAgent);
+          return res.status(400).json({ message: 'Kreditkartendaten sind erforderlich' });
+        }
+      }
+
       // User-Daten aus JWT für die Order
       const { businessPartnerId, bpLocationId, contactId } = req.user;
 
@@ -36,7 +46,9 @@ router.post(
       const completedOrder = await createAndCompleteOrder(orderData, {
         businessPartnerId,
         bpLocationId,
-        contactId
+        contactId,
+        paymentMethod,
+        creditCard,
       });
 
       // Audit Log

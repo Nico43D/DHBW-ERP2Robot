@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, Navigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
-import { Package } from 'lucide-react';
+import { Package, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 
 export interface Order {
   id: string;
@@ -20,6 +20,9 @@ export interface Order {
     image: string;
   }>;
 }
+
+type SortField = 'orderNumber' | 'date' | 'total';
+type SortDirection = 'asc' | 'desc';
 
 function getOrderStatusBadge(status: Order['orderStatus']) {
   switch (status) {
@@ -57,6 +60,35 @@ function getShippingStatusBadge(status: Order['shippingStatus']) {
 export default function Orders() {
   const { user, isAuthenticated, isSimplifiedMode, isLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'orderNumber':
+          cmp = a.orderNumber.localeCompare(b.orderNumber, undefined, { numeric: true });
+          break;
+        case 'date':
+          cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case 'total':
+          cmp = a.total - b.total;
+          break;
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [orders, sortField, sortDirection]);
 
   // Scroll to top when loading completes
   useEffect(() => {
@@ -132,8 +164,38 @@ export default function Orders() {
           </div>
         )}
 
+        {/* Sortier-Buttons */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-sm text-gray-600 mr-1">Sortieren:</span>
+          {([
+            { field: 'date' as SortField, label: 'Datum' },
+            { field: 'orderNumber' as SortField, label: 'Bestellnr.' },
+            { field: 'total' as SortField, label: 'Preis' },
+          ]).map(({ field, label }) => {
+            const isActive = sortField === field;
+            return (
+              <button
+                key={field}
+                onClick={() => handleSort(field)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#EB1A2B] text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {label}
+                {isActive ? (
+                  sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="space-y-4">
-          {orders.map((order) => (
+          {sortedOrders.map((order) => (
             <Link key={order.orderNumber} to={`/orders/${order.orderNumber}`}>
               <Card className="p-6 hover:shadow-lg transition-shadow">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -167,7 +229,7 @@ export default function Orders() {
                       €{order.total.toFixed(2)}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {order.items.length} {order.items.length === 1 ? 'Artikel' : 'Artikel'}
+                      {order.items.reduce((sum, item) => sum + item.quantity, 0)} {order.items.reduce((sum, item) => sum + item.quantity, 0) === 1 ? 'Artikel' : 'Artikel'}
                     </p>
                   </div>
                 </div>

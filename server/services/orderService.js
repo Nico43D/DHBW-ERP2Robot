@@ -1,5 +1,6 @@
 import { AUTH_CONFIG, ORDER_CONFIG } from '../config.js';
 import { idempiereFetch } from '../idempiere/client.js';
+import { createOrUpdateBPBankAccount } from './bankAccountService.js';
 
 // Konvertiere Datum zu ISO-Format (YYYY-MM-DD) für iDempiere
 function toDateOnly(date = new Date()) {
@@ -44,7 +45,7 @@ export async function createAndCompleteOrder(orderData, userData) {
     M_Warehouse_ID: { id: AUTH_CONFIG.parameters.warehouseId }, // Aus .env
     M_PriceList_ID: { id: ORDER_CONFIG.M_PriceList_ID },
     M_Shipper_ID: { id: ORDER_CONFIG.M_Shipper_ID },
-    PaymentRule: { id: ORDER_CONFIG.PaymentRule },
+    PaymentRule: { id: userData.paymentMethod === 'kreditkarte' ? 'K' : ORDER_CONFIG.PaymentRule },
     DeliveryViaRule: { id: ORDER_CONFIG.DeliveryViaRule },
     POReference: orderData.POReference || ORDER_CONFIG.POReference,
   };
@@ -89,6 +90,20 @@ export async function createAndCompleteOrder(orderData, userData) {
       error.status = lineRes.status;
       throw error;
     }
+  }
+
+  // Schritt 2.5: Kreditkarten-Bankdaten in iDempiere anlegen (wenn Kreditkarte gewählt)
+  if (userData.paymentMethod === 'kreditkarte' && userData.creditCard) {
+    const bankAccountId = await createOrUpdateBPBankAccount(
+      userData.creditCard,
+      userData.businessPartnerId
+    );
+    if (!bankAccountId) {
+      const error = new Error('Failed to create bank account record in iDempiere');
+      error.status = 500;
+      throw error;
+    }
+    console.log('[ORDER] Bank account created:', bankAccountId);
   }
 
   // Schritt 3: Auftrag abschließen (doc-action=CO)

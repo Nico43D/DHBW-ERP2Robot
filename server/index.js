@@ -5,6 +5,7 @@ import { PORT } from './config.js';
 import healthRoutes from './routes/health.js';
 import catalogRoutes from './routes/catalog.js';
 import orderRoutes from './routes/orders.js';
+import bankAccountRoutes from './routes/bankAccount.js';
 import authRoutes from './routes/auth.js';
 import { apiRateLimiter } from './middleware/security.js';
 
@@ -34,6 +35,7 @@ app.use(healthRoutes);           // GET /health
 app.use('/api', authRoutes);      // POST /api/auth/login, /api/auth/logout, GET /api/auth/me
 app.use('/api', catalogRoutes);   // GET /api/catalog
 app.use('/api', orderRoutes);     // POST /api/orders/create-and-complete
+app.use('/api', bankAccountRoutes); // GET /api/bank-account
 
 // Server starten
 app.listen(PORT, () => {

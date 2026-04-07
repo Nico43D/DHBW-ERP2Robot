@@ -50,12 +50,23 @@ export interface OrderLine {
   C_UOM_ID?: number;
 }
 
+// Kreditkartendaten für Zahlung
+export interface CreditCardPayment {
+  cardHolder: string;
+  cardNumber: string;
+  expiryDate: string;
+  cvc: string;
+  creditCardType: string;
+}
+
 // Bestellung für Order-API
 export interface OrderData {
   lines: OrderLine[];
   POReference?: string;
   DateOrdered?: string;
   DatePromised?: string;
+  paymentMethod?: 'rechnung' | 'paypal' | 'kreditkarte';
+  creditCard?: CreditCardPayment;
 }
 
 // API-Response wenn Bestellung erstellt wurde
@@ -64,6 +75,17 @@ export interface OrderResponse {
   DocumentNo?: string;
   DocStatus?: string;
   GrandTotal?: number;
+}
+
+// API-Response für gespeicherte Kreditkartendaten
+export interface BankAccountResponse {
+  exists: boolean;
+  cardHolder?: string;
+  cardNumber?: string;
+  cardNumberRaw?: string;
+  expiryDate?: string;
+  cvc?: string;
+  creditCardType?: string;
 }
 
 /**
@@ -75,6 +97,21 @@ export async function fetchCatalog(): Promise<ApiProduct[]> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || `Fehler beim Laden des Katalogs (${response.status})`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Gespeicherte Kreditkartendaten des eingeloggten Users abrufen
+ */
+export async function fetchBankAccount(): Promise<BankAccountResponse> {
+  const response = await fetch(`${API_BASE_URL}/bank-account`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    return { exists: false };
   }
 
   return response.json();
