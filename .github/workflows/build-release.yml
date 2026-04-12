@@ -1,0 +1,52 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main, webpage]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Create release archive
+        run: |
+          VERSION=$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)
+          ARCHIVE="dhbw-erp2robot-${VERSION}.tar.gz"
+          tar -czf "$ARCHIVE" \
+            --exclude=node_modules \
+            --exclude=.git \
+            --exclude=.github \
+            dist/ \
+            server/ \
+            package.json \
+            package-lock.json \
+            .env.example
+          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ env.VERSION }}
+          name: Build ${{ env.VERSION }}
+          body: |
+            Automatischer Build von `${{ github.ref_name }}` Branch.
+            Commit: ${{ github.sha }}
+          files: ${{ env.ARCHIVE }}
