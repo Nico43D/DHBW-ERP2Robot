@@ -131,6 +131,7 @@ server/
 │   ├── auth.js               # POST /api/auth/login, /register, /logout, GET /api/auth/me
 │   ├── orders.js             # POST /api/orders/create-and-complete
 │   ├── catalog.js            # GET /api/catalog
+│   ├── bankAccount.js        # GET /api/bank-account
 │   └── health.js             # GET /health
 │
 ├── services/                 # Business Logic Layer
@@ -138,7 +139,8 @@ server/
 │   ├── registrationService.js # 6-Schritt Registrierungsprozess
 │   ├── orderService.js       # Order Creation & Completion
 │   ├── auditService.js       # Audit Logging
-│   └── catalogService.js     # Produktkatalog (aus iDempiere)
+│   ├── catalogService.js     # Produktkatalog (aus iDempiere)
+│   └── bankAccountService.js # Kreditkarten-Bankdaten (C_BP_BankAccount)
 │
 ├── middleware/
 │   └── security.js           # Rate Limiting, Authorization, Error Handlers
@@ -359,6 +361,7 @@ app.use(healthRoutes);                                  // GET /health (kein /ap
 app.use('/api', authRoutes);                            // Auth Endpoints
 app.use('/api', catalogRoutes);                         // Catalog Endpoints
 app.use('/api', orderRoutes);                           // Order Endpoints
+app.use('/api', bankAccountRoutes);                     // Bank Account Endpoints
 ```
 
 ### Request Flow
@@ -669,6 +672,52 @@ Set-Cookie: auth_token=; Max-Age=0
 
 ---
 
+### Bank Account Endpoints
+
+#### `GET /api/bank-account`
+
+**Auth:** `requireAuth` (JWT Cookie erforderlich)
+
+Lädt gespeicherte Kreditkartendaten des eingeloggten Business Partners aus iDempiere (`C_BP_BankAccount` mit `IsACH = false`).
+
+**Response (200 OK) – Karte vorhanden:**
+
+```json
+{
+  "exists": true,
+  "cardHolder": "Tim Tester",
+  "cardNumber": "**** **** **** 1111",
+  "cardNumberRaw": "0000000000001111",
+  "expiryDate": "12/26",
+  "cvc": "000",
+  "creditCardType": "V"
+}
+```
+
+**Response (200 OK) – Keine Karte:**
+
+```json
+{
+  "exists": false
+}
+```
+
+**Hinweise:**
+- `cardNumber` ist die vom Backend maskierte Darstellung (Sternchen + letzte 4 Ziffern)
+- `cardNumberRaw` enthält die iDempiere-maskierte Version (Nullen + letzte 4 Ziffern)
+- `cvc` wird von iDempiere immer als `"000"` zurückgegeben (Sicherheitsfeature)
+- `creditCardType`: `V` = Visa, `M` = MasterCard, `A` = Amex, `D` = Discover
+
+**Service:** `bankAccountService.js → getBPBankAccount(businessPartnerId)`
+
+#### Kreditkarte anlegen/aktualisieren (via Order)
+
+Kreditkartendaten werden **nicht** über einen eigenen Endpoint gespeichert, sondern als Teil des Order-Prozesses in `POST /api/orders/create-and-complete`. Wenn `paymentMethod === 'kreditkarte'` und `creditCard`-Daten im Payload enthalten sind, wird `createOrUpdateBPBankAccount()` aufgerufen (nach Orderline-Erstellung, vor Order-Completion).
+
+Wird die Karte im Checkout nicht bearbeitet (Kachel-Ansicht), werden keine `creditCard`-Daten mitgesendet und der bestehende `C_BP_BankAccount`-Eintrag bleibt unverändert.
+
+---
+
 ## API-Referenz: Backend ↔ iDempiere
 
 ### Service Account Authentication (2-Schritt)
@@ -942,6 +991,51 @@ Order abschließen (Complete):
 
 ---
 
+### Bank Account Management (Kreditkarte)
+
+**Implementierung:** `server/services/bankAccountService.js`
+
+**GET `/models/c_bp_bankaccount?$filter=C_BPartner_ID eq {id} and IsACH eq false&$top=1`**
+
+Sucht den bestehenden Kreditkarten-Eintrag eines Business Partners. `IsACH eq false` filtert auf Kreditkarten-Modus (ACH = Banküberweisung/SEPA).
+
+---
+
+**POST `/models/c_bp_bankaccount`**
+
+Erstellt einen neuen Kreditkarten-Eintrag:
+
+```json
+{
+  "AD_Org_ID": { "id": 11 },
+  "C_BPartner_ID": { "id": 1000021 },
+  "IsACH": false,
+  "A_Name": "Tim Tester",
+  "CreditCardType": "V",
+  "CreditCardNumber": "4111111111111111",
+  "CreditCardExpMM": 12,
+  "CreditCardExpYY": 26,
+  "CreditCardVV": "123",
+  "IsActive": true
+}
+```
+
+**Felder:**
+- `IsACH: false` → Kreditkarten-Modus (zeigt CC-Felder statt Bank/IBAN in iDempiere)
+- `CreditCardType`: `V` (Visa), `M` (MasterCard), `A` (Amex), `D` (Discover) — wird im Frontend per Regex aus der Kartennummer erkannt
+- `CreditCardExpYY`: 2-stellig (z.B. `26` für 2026)
+- `A_Name`: Karteninhaber
+
+**Hinweis:** iDempiere maskiert bei der Rückgabe automatisch `CreditCardNumber` (Nullen + letzte 4) und `CreditCardVV` (`"000"`). Die echten Daten werden nur beim Schreiben akzeptiert.
+
+---
+
+**PUT `/models/c_bp_bankaccount/{id}`**
+
+Aktualisiert einen bestehenden Eintrag (gleiches Payload wie POST). Wird verwendet wenn `getBPBankAccount()` bereits einen Eintrag findet.
+
+---
+
 ## Datenflüsse
 
 ### User Login Flow
@@ -1105,6 +1199,14 @@ Order abschließen (Complete):
     │ Step 2: POST /models/c_orderline (je Zeile)│
     │  └─ M_Product_ID + QtyOrdered              │
     │                                            │
+    │ Step 2.5: Kreditkarte (optional)           │
+    │  └─ Nur wenn paymentMethod='kreditkarte'   │
+    │     UND creditCard-Daten im Payload        │
+    │  └─ bankAccountService:                    │
+    │     createOrUpdateBPBankAccount()          │
+    │     → GET c_bp_bankaccount (existiert?)    │
+    │     → POST oder PUT c_bp_bankaccount       │
+    │                                            │
     │ Step 3: PUT /models/c_order/{orderId}      │
     │  └─ doc-action: "CO" (Complete)            │
     │                                            │
@@ -1126,6 +1228,59 @@ Order abschließen (Complete):
 │ - Redirect →     │
 │  /order-confirm  │
 └──────────────────┘
+```
+
+---
+
+### Bank Account Flow (Kreditkarten-Kachel im Checkout)
+
+```
+┌──────────────────┐
+│     Frontend     │
+│  (Checkout.tsx)  │
+└────────┬─────────┘
+         │ User wählt "Kreditkarte" als Zahlungsart
+         │ useEffect → GET /api/bank-account
+         │ (JWT Cookie wird mitgesendet)
+         ▼
+┌──────────────────────────────────────────┐
+│  GET /api/bank-account                   │
+│  Middleware: requireAuth                 │
+│  → businessPartnerId aus JWT             │
+└────────┬─────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────┐
+│ bankAccountService.js                    │
+│ getBPBankAccount(businessPartnerId)      │
+│ → GET /models/c_bp_bankaccount           │
+│   ?$filter=C_BPartner_ID eq {id}        │
+│            and IsACH eq false            │
+└────────┬─────────────────────────────────┘
+         │
+    ┌────┴────────────────┐
+    │                     │
+    ▼                     ▼
+ Eintrag               Kein Eintrag
+ gefunden              gefunden
+    │                     │
+    ▼                     ▼
+┌────────────────┐  ┌────────────────┐
+│ Response:      │  │ Response:      │
+│ { exists: true │  │ { exists: false│
+│   cardHolder,  │  │ }              │
+│   cardNumber,  │  └───────┬────────┘
+│   ... }        │          │
+└───────┬────────┘          │
+        │                   │
+        ▼                   ▼
+┌────────────────┐  ┌────────────────┐
+│   Frontend:    │  │   Frontend:    │
+│ Kachel mit     │  │ Leeres Formular│
+│ maskierten     │  │ zur Eingabe    │
+│ Kartendaten    │  │ neuer Daten    │
+│ + "Bearbeiten" │  └────────────────┘
+└────────────────┘
 ```
 
 ---

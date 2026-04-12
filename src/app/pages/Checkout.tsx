@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { MapPin, CreditCard as CreditCardIcon, Loader2, AlertCircle } from 'lucide-react';
+import { MapPin, CreditCard as CreditCardIcon, Loader2, AlertCircle, Pencil } from 'lucide-react';
 import { createOrder, fetchBankAccount, OrderData } from '../services/api';
 
 function detectCardType(cardNumber: string): string {
@@ -14,6 +14,12 @@ function detectCardType(cardNumber: string): string {
   if (/^3[47]/.test(num)) return 'A';
   if (/^6(?:011|5)/.test(num)) return 'D';
   return '';
+}
+
+function maskCardNumber(raw: string): string {
+  const digits = raw.replace(/\s/g, '');
+  if (digits.length < 4) return '****';
+  return '**** **** **** ' + digits.slice(-4);
 }
 
 const CARD_TYPE_LABELS: Record<string, string> = {
@@ -63,6 +69,16 @@ export default function Checkout() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [savedCardDisplay, setSavedCardDisplay] = useState<{
+    maskedNumber: string;
+    cardType: string;
+    cardHolder: string;
+    expiryDate: string;
+  } | null>(null);
+  const [isEditingCard, setIsEditingCard] = useState(false);
+  const [cardBeforeEdit, setCardBeforeEdit] = useState<CreditCardData | null>(null);
+  const [cardWasEdited, setCardWasEdited] = useState(false);
+
   // Gespeicherte Kreditkartendaten aus iDempiere laden
   useEffect(() => {
     if (isSimplifiedMode) return;
@@ -73,6 +89,12 @@ export default function Checkout() {
           cardNumber: data.cardNumberRaw || '',
           expiryDate: data.expiryDate || '',
           cvc: data.cvc || '',
+        });
+        setSavedCardDisplay({
+          maskedNumber: data.cardNumber || maskCardNumber(data.cardNumberRaw || ''),
+          cardType: data.creditCardType || detectCardType(data.cardNumberRaw || ''),
+          cardHolder: data.cardHolder || '',
+          expiryDate: data.expiryDate || '',
         });
       }
     }).catch(() => {});
@@ -88,6 +110,11 @@ export default function Checkout() {
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (field === 'paymentMethod') {
+      setIsEditingCard(false);
+      setTouched({});
+      setErrors({});
+    }
   };
 
   const handleCreditCardChange = (field: keyof CreditCardData, value: string) => {
@@ -195,11 +222,36 @@ export default function Checkout() {
     return isValid;
   };
 
+  const handleSaveCardEdit = () => {
+    if (!validateCreditCardForm()) return;
+    setSavedCardDisplay({
+      maskedNumber: maskCardNumber(creditCard.cardNumber),
+      cardType: detectCardType(creditCard.cardNumber),
+      cardHolder: creditCard.cardHolder,
+      expiryDate: creditCard.expiryDate,
+    });
+    setIsEditingCard(false);
+    setCardBeforeEdit(null);
+    setCardWasEdited(true);
+    setTouched({});
+    setErrors({});
+  };
+
+  const handleCancelCardEdit = () => {
+    if (cardBeforeEdit) {
+      setCreditCard(cardBeforeEdit);
+    }
+    setIsEditingCard(false);
+    setCardBeforeEdit(null);
+    setTouched({});
+    setErrors({});
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate credit card if selected
-    if (formData.paymentMethod === 'kreditkarte' && !validateCreditCardForm()) {
+    // Validate credit card if selected and needs update
+    if (formData.paymentMethod === 'kreditkarte' && (!savedCardDisplay || cardWasEdited) && !validateCreditCardForm()) {
       return;
     }
 
@@ -215,7 +267,7 @@ export default function Checkout() {
         })),
         POReference: `WebShop-${Date.now()}`,
         paymentMethod: formData.paymentMethod,
-        ...(formData.paymentMethod === 'kreditkarte' && {
+        ...(formData.paymentMethod === 'kreditkarte' && (!savedCardDisplay || cardWasEdited) && {
           creditCard: {
             cardHolder: creditCard.cardHolder,
             cardNumber: creditCard.cardNumber,
@@ -391,112 +443,161 @@ export default function Checkout() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 mb-4">
-                      <CreditCardIcon className="h-5 w-5 text-[#EB1A2B]" />
-                      <h3 className="font-semibold text-lg">Kreditkarteninformationen</h3>
-                    </div>
+                    {savedCardDisplay && !isEditingCard ? (
+                      /* === KACHEL: Gespeicherte Kreditkarte === */
+                      <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <CreditCardIcon className="h-5 w-5 text-[#EB1A2B]" />
+                            <span className="font-semibold text-lg">Gespeicherte Kreditkarte</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setCardBeforeEdit({ ...creditCard }); setIsEditingCard(true); }}
+                            className="text-sm text-[#EB1A2B] hover:underline font-medium flex items-center gap-1"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Bearbeiten
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            {savedCardDisplay.cardType && CARD_TYPE_LABELS[savedCardDisplay.cardType] && (
+                              <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
+                                {CARD_TYPE_LABELS[savedCardDisplay.cardType]}
+                              </span>
+                            )}
+                            <p className="text-gray-900 font-mono text-base mt-1">{savedCardDisplay.maskedNumber}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm text-gray-700">{savedCardDisplay.cardHolder}</p>
+                            <p className="text-sm text-gray-700">Gültig bis {savedCardDisplay.expiryDate}</p>
+                            <p className="text-sm text-gray-500">CVC: ****</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* === FORMULAR: Kreditkartendaten eingeben/bearbeiten === */
+                      <>
+                        <div className="flex items-center gap-2 mb-4">
+                          <CreditCardIcon className="h-5 w-5 text-[#EB1A2B]" />
+                          <h3 className="font-semibold text-lg">Kreditkarteninformationen</h3>
+                        </div>
 
-                    <div className="space-y-4">
-                      {/* Card Holder */}
-                      <div>
-                        <label htmlFor="cardHolder" className="block text-sm font-medium text-gray-700 mb-1">
-                          Karteninhaber (Name auf der Karte) *
-                        </label>
-                        <input
-                          type="text"
-                          id="cardHolder"
-                          value={creditCard.cardHolder}
-                          onChange={(e) => handleCreditCardChange('cardHolder', e.target.value)}
-                          onBlur={() => handleCreditCardBlur('cardHolder')}
-                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                            touched.cardHolder && errors.cardHolder
-                              ? 'border-red-500 focus:ring-red-500'
-                              : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
-                          }`}
-                          placeholder="Max Mustermann"
-                        />
-                        {touched.cardHolder && errors.cardHolder && (
-                          <p className="mt-1 text-sm text-red-600">{errors.cardHolder}</p>
+                        <div className="space-y-4">
+                          {/* Card Holder */}
+                          <div>
+                            <label htmlFor="cardHolder" className="block text-sm font-medium text-gray-700 mb-1">
+                              Karteninhaber (Name auf der Karte) *
+                            </label>
+                            <input
+                              type="text"
+                              id="cardHolder"
+                              value={creditCard.cardHolder}
+                              onChange={(e) => handleCreditCardChange('cardHolder', e.target.value)}
+                              onBlur={() => handleCreditCardBlur('cardHolder')}
+                              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                                touched.cardHolder && errors.cardHolder
+                                  ? 'border-red-500 focus:ring-red-500'
+                                  : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
+                              }`}
+                              placeholder="Max Mustermann"
+                            />
+                            {touched.cardHolder && errors.cardHolder && (
+                              <p className="mt-1 text-sm text-red-600">{errors.cardHolder}</p>
+                            )}
+                          </div>
+
+                          {/* Card Number */}
+                          <div>
+                            <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                              Kartennummer *
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                id="cardNumber"
+                                value={creditCard.cardNumber}
+                                onChange={(e) => handleCreditCardChange('cardNumber', e.target.value)}
+                                onBlur={() => handleCreditCardBlur('cardNumber')}
+                                className={`w-full px-4 py-2 pr-28 border rounded-lg focus:outline-none focus:ring-2 ${
+                                  touched.cardNumber && errors.cardNumber
+                                    ? 'border-red-500 focus:ring-red-500'
+                                    : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
+                                }`}
+                                placeholder="1234 5678 9012 3456"
+                              />
+                              {detectedCardType && (
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
+                                  {CARD_TYPE_LABELS[detectedCardType]}
+                                </span>
+                              )}
+                            </div>
+                            {touched.cardNumber && errors.cardNumber && (
+                              <p className="mt-1 text-sm text-red-600">{errors.cardNumber}</p>
+                            )}
+                          </div>
+
+                          {/* Expiry and CVC */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                Ablaufdatum (MM/JJ) *
+                              </label>
+                              <input
+                                type="text"
+                                id="expiryDate"
+                                value={creditCard.expiryDate}
+                                onChange={(e) => handleCreditCardChange('expiryDate', e.target.value)}
+                                onBlur={() => handleCreditCardBlur('expiryDate')}
+                                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                                  touched.expiryDate && errors.expiryDate
+                                    ? 'border-red-500 focus:ring-red-500'
+                                    : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
+                                }`}
+                                placeholder="MM/JJ"
+                              />
+                              {touched.expiryDate && errors.expiryDate && (
+                                <p className="mt-1 text-sm text-red-600">{errors.expiryDate}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label htmlFor="cvc" className="block text-sm font-medium text-gray-700 mb-1">
+                                CVC/CVV *
+                              </label>
+                              <input
+                                type="text"
+                                id="cvc"
+                                value={creditCard.cvc}
+                                onChange={(e) => handleCreditCardChange('cvc', e.target.value)}
+                                onBlur={() => handleCreditCardBlur('cvc')}
+                                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                                  touched.cvc && errors.cvc
+                                    ? 'border-red-500 focus:ring-red-500'
+                                    : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
+                                }`}
+                                placeholder="123"
+                              />
+                              {touched.cvc && errors.cvc && (
+                                <p className="mt-1 text-sm text-red-600">{errors.cvc}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {savedCardDisplay && (
+                          <div className="flex gap-3 mt-4">
+                            <Button type="button" size="sm" onClick={handleSaveCardEdit}>
+                              Speichern
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={handleCancelCardEdit}>
+                              Abbrechen
+                            </Button>
+                          </div>
                         )}
-                      </div>
-
-                      {/* Card Number */}
-                      <div>
-                        <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                          Kartennummer *
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            id="cardNumber"
-                            value={creditCard.cardNumber}
-                            onChange={(e) => handleCreditCardChange('cardNumber', e.target.value)}
-                            onBlur={() => handleCreditCardBlur('cardNumber')}
-                            className={`w-full px-4 py-2 pr-28 border rounded-lg focus:outline-none focus:ring-2 ${
-                              touched.cardNumber && errors.cardNumber
-                                ? 'border-red-500 focus:ring-red-500'
-                                : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
-                            }`}
-                            placeholder="1234 5678 9012 3456"
-                          />
-                          {detectedCardType && (
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
-                              {CARD_TYPE_LABELS[detectedCardType]}
-                            </span>
-                          )}
-                        </div>
-                        {touched.cardNumber && errors.cardNumber && (
-                          <p className="mt-1 text-sm text-red-600">{errors.cardNumber}</p>
-                        )}
-                      </div>
-
-                      {/* Expiry and CVC */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
-                            Ablaufdatum (MM/JJ) *
-                          </label>
-                          <input
-                            type="text"
-                            id="expiryDate"
-                            value={creditCard.expiryDate}
-                            onChange={(e) => handleCreditCardChange('expiryDate', e.target.value)}
-                            onBlur={() => handleCreditCardBlur('expiryDate')}
-                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                              touched.expiryDate && errors.expiryDate
-                                ? 'border-red-500 focus:ring-red-500'
-                                : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
-                            }`}
-                            placeholder="MM/JJ"
-                          />
-                          {touched.expiryDate && errors.expiryDate && (
-                            <p className="mt-1 text-sm text-red-600">{errors.expiryDate}</p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label htmlFor="cvc" className="block text-sm font-medium text-gray-700 mb-1">
-                            CVC/CVV *
-                          </label>
-                          <input
-                            type="text"
-                            id="cvc"
-                            value={creditCard.cvc}
-                            onChange={(e) => handleCreditCardChange('cvc', e.target.value)}
-                            onBlur={() => handleCreditCardBlur('cvc')}
-                            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                              touched.cvc && errors.cvc
-                                ? 'border-red-500 focus:ring-red-500'
-                                : 'border-gray-300 focus:ring-[#EB1A2B] focus:border-transparent'
-                            }`}
-                            placeholder="123"
-                          />
-                          {touched.cvc && errors.cvc && (
-                            <p className="mt-1 text-sm text-red-600">{errors.cvc}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                      </>
+                    )}
                   </div>
                 )}
               </Card>
