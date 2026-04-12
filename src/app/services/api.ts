@@ -10,6 +10,7 @@ export interface ApiProduct {
   id: string;
   name: string;
   description: string;
+  documentNote: string;
   searchKey: string;
   price: number;
   stock: number;
@@ -21,6 +22,7 @@ export interface Product {
   id: string;
   name: string;
   description: string;
+  documentNote: string;
   price: number;
   image: string;
   stock?: number;
@@ -29,13 +31,15 @@ export interface Product {
 
 /**
  * Konvertiert ein API-Produkt zum Frontend-Format
- * - description von iDempiere wird als Anzeigename verwendet
+ * - Name von iDempiere wird als Anzeigename verwendet
+ * - Description von iDempiere wird als Produktbeschreibung auf der Detailseite angezeigt
  */
 export function mapApiProductToProduct(p: ApiProduct): Product {
   return {
     id: p.id,
-    name: p.description || p.name,
-    description: '',
+    name: p.name,
+    description: p.description || '',
+    documentNote: p.documentNote || '',
     price: p.price,
     image: p.image || FALLBACK_IMAGE,
     stock: p.stock,

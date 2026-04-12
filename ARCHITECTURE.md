@@ -635,21 +635,37 @@ Set-Cookie: auth_token=; Max-Age=0
     "id": "1000001",
     "name": "Knoppers",
     "description": "Knackig, knusprig, köstlich",
+    "documentNote": "<b>Zutaten:</b><br/>Weizen, Zucker, ...<br/><b>Allergene:</b> ...",
     "searchKey": "knoppers-01",
     "price": 2.99,
     "stock": 150,
     "image": "data:image/jpeg;base64,/9j/4AAQ..."
-  },
-  {
-    "id": "1000002",
-    "name": "Nougat Happen",
-    "description": "Süße Nougat-Praline",
-    "searchKey": "nougat-01",
-    "price": 4.49,
-    "stock": 75,
-    "image": "data:image/jpeg;base64,..."
   }
 ]
+```
+
+**Feld-Zuordnung (iDempiere → Frontend):**
+
+| iDempiere Feld | API Feld | Verwendung im Frontend |
+|---|---|---|
+| `Name` | `name` | Produktname (Überschrift überall) |
+| `Description` | `description` | Produktbeschreibung (Detailseite) |
+| `DocumentNote` | `documentNote` | Inhaltsstoffe & Allergene (Detailseite, HTML erlaubt) |
+| `Value` | `searchKey` | Such-Schlüssel |
+
+**DocumentNote HTML-Konventionen:** Das Feld unterstützt HTML-Formatierung. Allergene werden per `<u>` hervorgehoben (Lebensmittelkennzeichnung). Beispiel:
+
+```html
+<b>Zutaten:</b><br/>
+Haselnüsse (26,5%), Milchschokolade, Palmöl, Molkenpulver
+<br/><br/>
+<b>Allergene:</b> Enthält <u>Milch</u>, <u>Schalenfrüchte</u> und <u>Soja</u>.
+<br/><br/>
+<b>Nährwerte (pro 100g)</b>
+<ul>
+<li>Energie: 2614 kJ / 630 kcal</li>
+<li>Fett: 47,3 g</li>
+</ul>
 ```
 
 **Datenquelle:** Produkte werden live aus iDempiere geladen (4 Queries: m_product, m_productprice, m_storageonhand, Attachments). Bilder werden als Base64 Data-URLs geliefert. Es gibt keine statische `products.ts` Datei.

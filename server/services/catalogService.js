@@ -45,7 +45,7 @@ export async function loadCatalog() {
   // Filter: Aktiv, verkauft, featured, in korrekter Kategorie
   const productParams = new URLSearchParams({
     $filter: `IsActive eq true AND IsSold eq true AND IsWebStoreFeatured eq true AND M_Product_Category_ID eq ${CATALOG_CONFIG.productCategoryId}`,
-    $select: 'Name,Value,Description,M_Product_Category_ID',
+    $select: 'Name,Value,Description,DocumentNote,M_Product_Category_ID',
     $orderby: 'Name asc',
     $top: '50',
   });
@@ -122,6 +122,7 @@ export async function loadCatalog() {
     id: String(p.id),
     name: p.Name,
     description: p.Description ?? '',
+    documentNote: p.DocumentNote ?? '',
     searchKey: p.Value,
     price: pricesMap.get(p.id) ?? 0,
     stock: stockMap.get(p.id) ?? 0,

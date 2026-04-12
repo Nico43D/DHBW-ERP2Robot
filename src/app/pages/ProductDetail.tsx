@@ -5,7 +5,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { useCart } from '../contexts/CartContext';
-import { ArrowLeft, Check, ShoppingCart, Package, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Check, ShoppingCart, Package, Loader2, AlertCircle, RefreshCw, Info } from 'lucide-react';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -144,6 +144,11 @@ export default function ProductDetail() {
               <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
                 {product.name}
               </h1>
+              {product.description && (
+                <p className="text-gray-600 text-lg leading-relaxed">
+                  {product.description}
+                </p>
+              )}
             </div>
 
             <div className="text-4xl font-bold text-[#EB1A2B]">
@@ -177,6 +182,19 @@ export default function ProductDetail() {
                 )}
               </Button>
             </Card>
+
+            {product.documentNote && (
+              <Card className="p-5 mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="h-5 w-5 text-[#EB1A2B]" />
+                  <h3 className="font-semibold text-lg">Inhaltsstoffe & Allergene</h3>
+                </div>
+                <div
+                  className="text-gray-600 text-sm leading-relaxed prose prose-sm"
+                  dangerouslySetInnerHTML={{ __html: product.documentNote }}
+                />
+              </Card>
+            )}
           </div>
         </div>
       </div>
