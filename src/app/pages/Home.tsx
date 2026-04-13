@@ -109,30 +109,44 @@ export default function Home() {
             </div>
           ) : products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {products.map((product) => (
-                <Link key={product.id} to={`/products/${product.id}`} className="group">
-                  <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="aspect-square overflow-hidden bg-white flex items-center justify-center p-6">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="h-full w-full object-contain group-hover:scale-105 transition-transform"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
-                        }}
-                      />
-                    </div>
-                    <div className="p-6">
-                      <h3 className="font-semibold text-xl mb-2 group-hover:text-[#EB1A2B] transition-colors">
-                        {product.name}
-                      </h3>
-                      <div className="text-2xl font-bold text-[#EB1A2B]">
-                        €{product.price.toFixed(2)}
+              {products.map((product) => {
+                const outOfStock = product.stock !== undefined && product.stock <= 0;
+                const Wrapper = outOfStock ? 'div' : Link;
+                const wrapperProps = outOfStock ? {} : { to: `/products/${product.id}` };
+
+                return (
+                  <Wrapper key={product.id} {...(wrapperProps as any)} className={`group ${outOfStock ? 'cursor-not-allowed' : ''}`}>
+                    <div className={`bg-white rounded-lg shadow-md overflow-hidden transition-shadow relative ${outOfStock ? 'opacity-50' : 'hover:shadow-lg'}`}>
+                      <div className="aspect-square overflow-hidden bg-white flex items-center justify-center p-6 relative">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className={`h-full w-full object-contain transition-transform ${outOfStock ? '' : 'group-hover:scale-105'}`}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                          }}
+                        />
+                        {product.description && !outOfStock && (
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                            <p className="text-white text-sm line-clamp-3">{product.description}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-6">
+                        <h3 className={`font-semibold text-xl mb-2 transition-colors ${outOfStock ? 'text-gray-400' : 'group-hover:text-[#EB1A2B]'}`}>
+                          {product.name}
+                        </h3>
+                        <div className={`text-2xl font-bold ${outOfStock ? 'text-gray-400' : 'text-[#EB1A2B]'}`}>
+                          €{product.price.toFixed(2)}
+                        </div>
+                        {outOfStock && (
+                          <span className="text-sm font-medium text-red-500 mt-1 block">Nicht verfügbar</span>
+                        )}
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Wrapper>
+                );
+              })}
             </div>
           ) : (
             <p className="text-center text-gray-600">
