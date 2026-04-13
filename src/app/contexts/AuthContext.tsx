@@ -26,8 +26,6 @@ interface AuthContextType {
   updateAddresses: (billingAddress: Address, deliveryAddress: Address) => void;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
-  isSimplifiedMode: boolean;
-  toggleSimplifiedMode: () => void;
   isLoading: boolean;
 }
 
@@ -42,64 +40,29 @@ export interface RegisterData {
   deliveryAddress: Address;
 }
 
-// Demo user for Demo-Version
-const DEMO_USER: User = {
-  id: 'demo-user',
-  email: 'demo@duale-suessigkeiten.de',
-  firstName: 'Demo',
-  lastName: 'Benutzer',
-  customerType: 'private',
-  billingAddress: {
-    street: 'Musterstraße',
-    houseNumber: '42',
-    zipCode: '10115',
-    city: 'Berlin',
-    country: 'Deutschland',
-  },
-  deliveryAddress: {
-    street: 'Musterstraße',
-    houseNumber: '42',
-    zipCode: '10115',
-    city: 'Berlin',
-    country: 'Deutschland',
-  },
-};
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isSimplifiedMode, setIsSimplifiedMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load simplified mode preference from localStorage
-    const savedSimplifiedMode = localStorage.getItem('simplified-mode');
-    if (savedSimplifiedMode === 'true') {
-      setIsSimplifiedMode(true);
-      setUser(DEMO_USER);
-      setIsLoading(false);
-    } else {
-      // Check session with backend
-      checkSession();
-    }
+    checkSession();
   }, []);
 
   const checkSession = async () => {
     try {
       const response = await fetch('/api/auth/me', {
-        credentials: 'include', // Wichtig: Cookies mitsenden
+        credentials: 'include',
       });
 
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
       } else {
-        // 401 ist erwartet, wenn kein User eingeloggt ist - kein Fehler
         setUser(null);
       }
     } catch (error) {
-      // Nur bei Netzwerkfehlern (nicht bei 401) loggen
       console.debug('Session check network error:', error);
       setUser(null);
     } finally {
@@ -107,31 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleSimplifiedMode = () => {
-    const newMode = !isSimplifiedMode;
-    setIsSimplifiedMode(newMode);
-    localStorage.setItem('simplified-mode', newMode.toString());
-
-    if (newMode) {
-      // Switch to simplified mode
-      setUser(DEMO_USER);
-    } else {
-      // Switch back to normal mode
-      setUser(null);
-      checkSession();
-    }
-  };
-
   const login = async (email: string, password: string): Promise<boolean> => {
-    if (isSimplifiedMode) return true; // Always logged in as demo user
-
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Wichtig: Cookies empfangen
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
@@ -149,8 +95,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
-    if (isSimplifiedMode) return { success: true };
-
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -182,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateAddresses = (billingAddress: Address, deliveryAddress: Address) => {
-    if (!user || isSimplifiedMode) return; // Don't update demo user
+    if (!user) return;
 
     const updatedUser = {
       ...user,
@@ -195,8 +139,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    if (isSimplifiedMode) return; // Can't logout in simplified mode
-
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
@@ -218,8 +160,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateAddresses,
         logout,
         isAuthenticated: !!user,
-        isSimplifiedMode,
-        toggleSimplifiedMode,
         isLoading,
       }}
     >

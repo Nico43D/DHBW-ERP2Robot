@@ -20,7 +20,7 @@ function getOrderStatusText(status: Order['orderStatus']) {
 
 export default function OrderConfirmation() {
   const { orderNumber } = useParams();
-  const { isAuthenticated, isSimplifiedMode, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
 
   // Scroll to top when loading completes
@@ -33,7 +33,7 @@ export default function OrderConfirmation() {
   useEffect(() => {
     if (orderNumber) {
       // Load order from localStorage
-      const ordersKey = isSimplifiedMode ? 'duale-demo-orders' : 'duale-orders';
+      const ordersKey = 'duale-orders';
       const allOrders = JSON.parse(localStorage.getItem(ordersKey) || '[]');
       const foundOrder = allOrders.find((o: Order) => o.orderNumber === orderNumber);
       setOrder(foundOrder || null);
@@ -47,7 +47,7 @@ export default function OrderConfirmation() {
       // Clear the flag when leaving the confirmation page
       sessionStorage.removeItem('order-confirmation-active');
     };
-  }, [orderNumber, isSimplifiedMode]);
+  }, [orderNumber]);
 
   // Warte bis Session-Check abgeschlossen ist
   if (isLoading) {
@@ -96,17 +96,6 @@ export default function OrderConfirmation() {
           <p className="text-lg text-gray-600 mb-6">
             Ihre Bestellung wurde erfolgreich aufgegeben.
           </p>
-
-          {isSimplifiedMode && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-lg">
-              <p className="text-sm font-semibold text-amber-900">
-                🎉 Demo-Version Bestellung erfolgreich abgeschlossen
-              </p>
-              <p className="text-xs text-amber-800 mt-1">
-                Diese Bestellung wurde in der Demo-Version erstellt
-              </p>
-            </div>
-          )}
 
           <div className="bg-gray-50 rounded-lg p-6 mb-6">
             <p className="text-sm text-gray-600 mb-2">Bestellnummer</p>

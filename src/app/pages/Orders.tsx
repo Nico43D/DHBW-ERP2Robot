@@ -58,7 +58,7 @@ function getShippingStatusBadge(status: Order['shippingStatus']) {
 }
 
 export default function Orders() {
-  const { user, isAuthenticated, isSimplifiedMode, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -100,12 +100,12 @@ export default function Orders() {
   useEffect(() => {
     // Load orders from localStorage (use different key for demo mode)
     if (user) {
-      const ordersKey = isSimplifiedMode ? 'duale-demo-orders' : 'duale-orders';
+      const ordersKey = 'duale-orders';
       const allOrders = JSON.parse(localStorage.getItem(ordersKey) || '[]');
       const userOrders = allOrders.filter((order: Order) => order.id.startsWith(user.id));
       setOrders(userOrders);
     }
-  }, [user, isSimplifiedMode]);
+  }, [user]);
 
   // Warte bis Session-Check abgeschlossen ist
   if (isLoading) {
@@ -152,17 +152,6 @@ export default function Orders() {
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">
           Meine Bestellungen
         </h1>
-
-        {isSimplifiedMode && orders.length > 0 && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-lg">
-            <p className="text-sm font-semibold text-amber-900">
-              📦 Demo-Version Bestellungen
-            </p>
-            <p className="text-xs text-amber-800 mt-1">
-              Diese Bestellungen wurden in der Demo-Version erstellt
-            </p>
-          </div>
-        )}
 
         {/* Sortier-Buttons */}
         <div className="flex flex-wrap items-center gap-2 mb-4">

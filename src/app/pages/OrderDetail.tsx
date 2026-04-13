@@ -41,7 +41,7 @@ function getShippingStatusBadge(status: Order['shippingStatus']) {
 
 export default function OrderDetail() {
   const { orderNumber } = useParams();
-  const { isAuthenticated, isSimplifiedMode, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
 
   // Scroll to top when loading completes
@@ -53,11 +53,11 @@ export default function OrderDetail() {
 
   useEffect(() => {
     // Load order from localStorage (use different key for demo mode)
-    const ordersKey = isSimplifiedMode ? 'duale-demo-orders' : 'duale-orders';
+    const ordersKey = 'duale-orders';
     const allOrders = JSON.parse(localStorage.getItem(ordersKey) || '[]');
     const foundOrder = allOrders.find((o: Order) => o.orderNumber === orderNumber);
     setOrder(foundOrder || null);
-  }, [orderNumber, isSimplifiedMode]);
+  }, [orderNumber]);
 
   // Warte bis Session-Check abgeschlossen ist
   if (isLoading) {
@@ -119,17 +119,6 @@ export default function OrderDetail() {
             })} Uhr
           </p>
         </div>
-
-        {isSimplifiedMode && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-lg">
-            <p className="text-sm font-semibold text-amber-900">
-              📦 Demo-Version Bestellung
-            </p>
-            <p className="text-xs text-amber-800 mt-1">
-              Diese Bestellung wurde in der Demo-Version erstellt
-            </p>
-          </div>
-        )}
 
         {/* Status Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

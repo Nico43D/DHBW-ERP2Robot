@@ -20,9 +20,14 @@ import AGB from './pages/AGB';
 import Datenschutz from './pages/Datenschutz';
 import Impressum from './pages/Impressum';
 import Widerrufsrecht from './pages/Widerrufsrecht';
+import Demo from './pages/Demo';
 import NotFound from './pages/NotFound';
 
 export const router = createBrowserRouter([
+  {
+    path: '/demo',
+    Component: Demo,
+  },
   {
     path: '/',
     Component: Layout,

@@ -37,7 +37,7 @@ interface CreditCardData {
 }
 
 export default function Checkout() {
-  const { user, isAuthenticated, isSimplifiedMode } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { items, totalPrice, clearCart } = useCart();
   const navigate = useNavigate();
 
@@ -46,21 +46,12 @@ export default function Checkout() {
     shippingMethod: 'standard' as 'standard' | 'express',
   });
 
-  const [creditCard, setCreditCard] = useState<CreditCardData>(
-    isSimplifiedMode
-      ? {
-          cardHolder: 'Max Mustermann',
-          cardNumber: '4532 1488 0343 6467',
-          expiryDate: '12/26',
-          cvc: '123',
-        }
-      : {
-          cardHolder: '',
-          cardNumber: '',
-          expiryDate: '',
-          cvc: '',
-        }
-  );
+  const [creditCard, setCreditCard] = useState<CreditCardData>({
+    cardHolder: '',
+    cardNumber: '',
+    expiryDate: '',
+    cvc: '',
+  });
 
   const detectedCardType = detectCardType(creditCard.cardNumber);
 
@@ -81,7 +72,6 @@ export default function Checkout() {
 
   // Gespeicherte Kreditkartendaten aus iDempiere laden
   useEffect(() => {
-    if (isSimplifiedMode) return;
     fetchBankAccount().then((data) => {
       if (data.exists && data.cardHolder) {
         setCreditCard({
@@ -98,7 +88,7 @@ export default function Checkout() {
         });
       }
     }).catch(() => {});
-  }, [isSimplifiedMode]);
+  }, []);
 
   if (!isAuthenticated) {
     return <Navigate to="/login?redirect=checkout&message=login-required" replace />;
@@ -156,8 +146,6 @@ export default function Checkout() {
   };
 
   const validateCreditCardField = (field: keyof CreditCardData): boolean => {
-    if (isSimplifiedMode) return true; // Skip validation in Demo-Version
-
     const value = creditCard[field];
     let error = '';
 
@@ -208,8 +196,6 @@ export default function Checkout() {
   };
 
   const validateCreditCardForm = (): boolean => {
-    if (isSimplifiedMode) return true; // Skip validation in Demo-Version
-
     const fields: (keyof CreditCardData)[] = ['cardHolder', 'cardNumber', 'expiryDate', 'cvc'];
     let isValid = true;
 
@@ -303,7 +289,7 @@ export default function Checkout() {
       };
 
       // Save order to localStorage (use different key for demo mode)
-      const ordersKey = isSimplifiedMode ? 'duale-demo-orders' : 'duale-orders';
+      const ordersKey = 'duale-orders';
       const orders = JSON.parse(localStorage.getItem(ordersKey) || '[]');
       orders.push(order);
       localStorage.setItem(ordersKey, JSON.stringify(orders));
@@ -345,24 +331,14 @@ export default function Checkout() {
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-semibold text-xl">Adressen</h2>
-                  {!isSimplifiedMode && (
-                    <Link
-                      to="/account/addresses"
-                      className="text-sm text-[#EB1A2B] hover:underline font-medium flex items-center gap-1"
-                    >
-                      <MapPin className="h-4 w-4" />
-                      Adresse ändern
-                    </Link>
-                  )}
+                  <Link
+                    to="/account/addresses"
+                    className="text-sm text-[#EB1A2B] hover:underline font-medium flex items-center gap-1"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Adresse ändern
+                  </Link>
                 </div>
-
-                {isSimplifiedMode && (
-                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-900">
-                      <strong>Demo-Version:</strong> Die Adressdaten sind bereits ausgefüllt
-                    </p>
-                  </div>
-                )}
 
                 <div className="space-y-6">
                   {/* Billing Address */}
@@ -435,14 +411,6 @@ export default function Checkout() {
                 {/* Credit Card Form */}
                 {formData.paymentMethod === 'kreditkarte' && (
                   <div className="mt-6 pt-6 border-t border-gray-200">
-                    {isSimplifiedMode && (
-                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-sm text-amber-900">
-                          <strong>Demo-Version:</strong> Kreditkartendaten sind bereits ausgefüllt
-                        </p>
-                      </div>
-                    )}
-
                     {savedCardDisplay && !isEditingCard ? (
                       /* === KACHEL: Gespeicherte Kreditkarte === */
                       <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
@@ -702,8 +670,6 @@ export default function Checkout() {
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Bestellung wird verarbeitet...
                     </>
-                  ) : isSimplifiedMode ? (
-                    'Bestellung abschließen'
                   ) : (
                     'Zahlungspflichtig bestellen'
                   )}
