@@ -93,7 +93,7 @@ export default function Demo() {
     setOrderResult(null);
 
     try {
-      const res = await fetch('/api/orders/create-and-complete', {
+      const res = await fetch('/api/demo/orders/create-and-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
