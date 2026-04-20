@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 
-const DEFAULT_BPARTNER_ID = 119;
-
 interface Product {
   id: string;
   name: string;
@@ -97,7 +95,6 @@ export default function Demo() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          C_BPartner_ID: DEFAULT_BPARTNER_ID,
           lines: orderLines,
         }),
       });

@@ -5,7 +5,7 @@ import { ORDER_CONFIG } from '../config.js';
 const router = Router();
 
 // POST /api/demo/orders/create-and-complete: Demo-Bestellung ohne Authentifizierung
-// Verwendet feste BPartner-Daten aus der Config (BPartner 119)
+// Verwendet Standard-BPartner aus ORDER_CONFIG (Fallback: 1000015)
 router.post(
   '/demo/orders/create-and-complete',
   async (req, res) => {
@@ -15,8 +15,10 @@ router.post(
         return res.status(400).json({ message: 'Order payload requires non-empty lines array' });
       }
 
+      const demoBusinessPartnerId = ORDER_CONFIG.C_BPartner_ID || 1000015;
+
       const completedOrder = await createAndCompleteOrder(orderData, {
-        businessPartnerId: orderData.C_BPartner_ID || ORDER_CONFIG.Bill_BPartner_ID,
+        businessPartnerId: demoBusinessPartnerId,
         bpLocationId: ORDER_CONFIG.Bill_Location_ID,
         contactId: ORDER_CONFIG.Bill_User_ID,
       });
