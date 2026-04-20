@@ -1460,53 +1460,35 @@ app.use(cors({
 
 ### Environment Variables (`.env`)
 
-Vollständige Liste aller Umgebungsvariablen -- siehe `.env.example`:
+Siehe `.env.example` fuer die vollstaendige kommentierte Vorlage.
+
+**Pflicht (Demo + normaler Betrieb):**
 
 ```bash
-# Server
-PORT=3001
-
-# iDempiere Connection
 IDEMPIERE_BASE_URL=http://localhost:8080/api/v1
 IDEMPIERE_USER=GardenAdmin
 IDEMPIERE_PASSWORD=your-idempiere-password
-
-# iDempiere Context Selection
-IDEMPIERE_CLIENT_ID=11
-IDEMPIERE_ROLE_ID=102
-IDEMPIERE_ORG_ID=11
-IDEMPIERE_WAREHOUSE_ID=1000000
-IDEMPIERE_LANGUAGE=en_US
-
-# Catalog
-IDEMPIERE_PRODUCT_CATEGORY_ID=1000000
-IDEMPIERE_PRICE_LIST_VERSION_ID=104
-
-# Order Configuration
-IDEMPIERE_ORDER_BPARTNER_ID=119
-IDEMPIERE_ORDER_BPARTNER_LOCATION_ID=116
-IDEMPIERE_ORDER_ORG_ID=11
-IDEMPIERE_ORDER_DOCTYPE_ID=133
-IDEMPIERE_ORDER_USER_ID=102
-IDEMPIERE_ORDER_SALESREP_ID=101
-IDEMPIERE_ORDER_BILL_BPARTNER_ID=119
-IDEMPIERE_ORDER_BILL_LOCATION_ID=116
-IDEMPIERE_ORDER_BILL_USER_ID=102
-IDEMPIERE_ORDER_PAYMENT_TERM_ID=105
-IDEMPIERE_ORDER_PRICE_LIST_ID=101
-IDEMPIERE_ORDER_SHIPPER_ID=100
-IDEMPIERE_ORDER_PAYMENT_RULE=P
-IDEMPIERE_ORDER_DELIVERY_RULE=S
-IDEMPIERE_ORDER_POREFERENCE=easwebtestfixed
-
-# Registration
-IDEMPIERE_REGISTRATION_ROLE_ID=1000000
-
-# JWT Authentication
 JWT_SECRET=your-super-secret-key-at-least-32-characters-long
 ```
 
-**Hinweis:** Einige `ORDER_CONFIG` Felder (C_BPartner_ID, Bill_BPartner_ID, etc.) werden bei authentifizierten Bestellungen mit den JWT-Userdaten überschrieben. Sie dienen als Fallback-Defaults.
+**Optional (haben Code-Defaults in `server/config.js`):**
+
+| Variable | Default | Zweck |
+|---|---|---|
+| `PORT` | 3001 | Backend-Port |
+| `IDEMPIERE_CLIENT_ID` | 11 | Mandant (GardenWorld) |
+| `IDEMPIERE_ROLE_ID` | 102 | Rolle fuer Admin-Token |
+| `IDEMPIERE_ORG_ID` | 11 | Organisation |
+| `IDEMPIERE_WAREHOUSE_ID` | 1000000 | Lager (global fuer Orders) |
+| `IDEMPIERE_LANGUAGE` | en_US | Sprache |
+| `IDEMPIERE_PRODUCT_CATEGORY_ID` | 1000000 | Katalogfilter |
+| `IDEMPIERE_PRICE_LIST_VERSION_ID` | 104 | Preisliste |
+| `IDEMPIERE_ORDER_*` | diverse | Bestell-Defaults (Org, DocType, Zahlung, Versand) |
+| `IDEMPIERE_REGISTRATION_ROLE_ID` | 1000000 | Rolle fuer neue Webshop-User |
+
+**Hinweis zur Benutzerzuordnung bei Orders:**
+
+Im normalen Checkout kommen `C_BPartner_ID`, `C_BPartner_Location_ID`, `AD_User_ID` und `Bill_*`-Felder aus dem JWT (eingeloggter User). Die `ORDER_CONFIG`-Variablen fuer BPartner/User (z.B. `IDEMPIERE_ORDER_BPARTNER_ID`, `IDEMPIERE_ORDER_BILL_USER_ID`) werden nur in der Demo-Route als Fallback verwendet, da dort kein Login/JWT existiert.
 
 ---
 
